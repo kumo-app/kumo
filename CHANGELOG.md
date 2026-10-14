@@ -1,17 +1,14 @@
 # Changelog
 
-## Unreleased (auto-update)
-
-- Online updates: Kumo checks at launch and once a day (Settings › Updates: on/off, Stable or Beta channel, Check now) and offers a new version with its notes: Update now, Later (also Escape), or Skip this version.
-- Updates are verified before anything changes: the manifest (`latest.json`) is signed with Ed25519, and every file has its own SHA-256 and signature, checked against the public key built into Kumo. The release workflow signs with the `KUMO_UPDATE_KEY` secret and refuses a key that does not match.
-- The download runs in the background with progress and resumes after an interruption. Quitting restores the system proxy as always; then a helper swaps in the new `Kumo.app` (quarantine removed from our own verified copy), portable or `tar.gz` folder, or runs the Windows installer silently, and starts the new version. If it does not start, the previous version is put back and Kumo says so. A `.deb` install is downloaded, verified and opened in the package manager.
-
-## Unreleased (stats-hotkeys)
+## 0.5.0
 
 - Statistics page (sidebar, also in simple mode): today, this month and the range's traffic, a daily (or monthly) chart, top apps, nodes and proxy groups; 7/30/90 days or 12 months; Clear. Counted from the core's totals and live connections, aggregates only, in one small gzip JSON file (`traffic-stats.json.gz`, atomic writes), 90 days daily and 24 months monthly, top 20 per day and 100 per month with the rest under Other. A simulated heavy year (500 apps, 300 nodes, 40 groups every day) is about 14 KB.
 - Node monitor: background latency tests of every node (default every minute, 3 at a time, spread over the interval, the group's test URL), kept in memory for this launch: uptime, average, p95, jitter, last up, outages. Cards show uptime (and a small latency line in advanced mode); the activity button opens the node's sheet with the timeline and outages.
 - Node tests in the sheet: download speed (Cloudflare, up to 8 s or 50 MB, cancelable, data use explained first) and UDP (a DNS query over SOCKS5 UDP), through a hidden selector and a loopback-only listener, so the groups' choices are not touched.
 - Global shortcuts (Settings): system proxy, Enhanced Mode, next mode, show/hide; none by default; recorded by pressing them, with conflict and registration errors shown.
+- Online updates: Kumo checks at launch and once a day (Settings › Updates: on/off, Stable or Beta channel, Check now) and offers a new version with its notes: Update now, Later (also Escape), or Skip this version.
+- Updates are verified before anything changes: the manifest (`latest.json`) is signed with Ed25519, and every file has its own SHA-256 and signature, checked against the public key built into Kumo. The release workflow signs with the `KUMO_UPDATE_KEY` secret and refuses a key that does not match.
+- The download runs in the background with progress and resumes after an interruption. Quitting restores the system proxy as always; then a helper swaps in the new `Kumo.app` (quarantine removed from our own verified copy), portable or `tar.gz` folder, or runs the Windows installer silently, and starts the new version. If it does not start, the previous version is put back and Kumo says so. A `.deb` install is downloaded, verified and opened in the package manager.
 
 ## 0.4.4
 

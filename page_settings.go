@@ -18,7 +18,7 @@ import (
 )
 
 // version is the app's version, as in mygo.json.
-var version = "0.4.4"
+var version = "0.5.0"
 
 // section heads a group of settings.
 func section(c *ui.Context, s skin, title string) {

@@ -76,6 +76,8 @@ The builds are **not code-signed**:
 
 ### Updates
 
+The updater arrived in 0.5.0: from 0.4.x, install 0.5.0 by hand once; later versions update themselves.
+
 Kumo checks for a new version at launch and once a day (Settings › Updates:
 turn it off, choose the Stable or Beta channel, or **Check now**). It shows
 the release notes and installs only when you choose **Update now**; **Later**
