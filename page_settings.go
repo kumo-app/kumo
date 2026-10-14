@@ -99,6 +99,29 @@ func (k *Kumo) settingsPage(c *ui.Context, s skin) {
 				k.refreshMenus()
 			}
 		})
+		setting(c, s, tr("Node monitor"), tr("Tests each node's latency in the background while Kumo runs, a few at a time, for uptime and outages on the Nodes page. Nothing is saved."), func() {
+			secs := []int{0, 30, 60, 120, 300}
+			names := []string{tr("Off"), tr("Every 30 seconds"), tr("Every minute"), tr("Every 2 minutes"), tr("Every 5 minutes")}
+			if every := k.prefs.App.MonitorEvery; !slices.Contains(secs, every) {
+				// Set by hand in settings.json.
+				secs = append(secs, every)
+				names = append(names, fmt.Sprintf(tr("Every %d seconds"), every))
+			}
+			cur := names[max(slices.Index(secs, k.prefs.App.MonitorEvery), 0)]
+			if ui.Select(c, &cur, names).Label(tr("Node monitor")).Width(200).Changed() {
+				k.prefs.App.MonitorEvery = secs[max(slices.Index(names, cur), 0)]
+				_ = k.prefs.save()
+				k.syncMonitorPrefs()
+			}
+		})
+		section(c, s, tr("GLOBAL SHORTCUTS"))
+		for _, a := range hotkeyActions() {
+			setting(c, s, a.title, "", func() {
+				ui.Row(c).Gap(4).AlignItems(ui.Center).Children(func() { k.hotkeyField(c, s, a.id) })
+			})
+		}
+		ui.Text(c, tr("Click a field and press the keys, with Ctrl, Alt or ⌘; Esc cancels, Delete clears. The shortcuts work while Kumo is in the background.")).
+			FontSize(12.5).TextColor(s.muted).LineHeight(1.4).Padding(8, 0)
 		k.updateSettings(c, s)
 		section(c, s, tr("ABOUT"))
 		ui.Text(c, fmt.Sprintf(tr("Kumo %s is a simple desktop client for Clash / mihomo, built with MyGo and MIT licensed. It bundles the mihomo core (GPL-3.0)."), version)).

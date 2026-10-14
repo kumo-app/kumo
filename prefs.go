@@ -23,6 +23,8 @@ type Prefs struct {
 		AutoSystemProxy bool `json:"autoSystemProxy"`
 		Tun             bool `json:"tun"`
 		AllowLan        bool `json:"allowLan"`
+		// TestPort is the loopback listener of the node tests.
+		TestPort int `json:"testPort"`
 	} `json:"core"`
 	Controller struct {
 		Host   string `json:"host"`
@@ -49,6 +51,13 @@ type Prefs struct {
 		SkipVersion string `json:"skipVersion,omitempty"`
 		// LastUpdateCheck is when Kumo last looked (Unix seconds).
 		LastUpdateCheck int64 `json:"lastUpdateCheck,omitempty"`
+		// MonitorEvery is the seconds between the node monitor's latency
+		// tests of each node; 0 turns it off.
+		MonitorEvery int `json:"monitorEvery"`
+		// SpeedWarned: the data use of a speed test was explained.
+		SpeedWarned bool `json:"speedWarned"`
+		// Hotkeys maps an action (hotkeyActions) to its global shortcut.
+		Hotkeys map[string]string `json:"hotkeys,omitempty"`
 	} `json:"app"`
 	UI struct {
 		AdvancedMode  bool `json:"advancedMode"`
@@ -72,6 +81,7 @@ func loadPrefs(path string) *Prefs {
 	p.Controller.TestTimeout = 5000
 	p.App.Theme = "system"
 	p.App.SidebarColor = "blue"
+	p.App.MonitorEvery = 60
 	if data, err := os.ReadFile(path); err == nil {
 		if err := json.Unmarshal(data, p); err != nil {
 			kept, _ := core.KeepCorrupt(path)

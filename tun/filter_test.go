@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -70,5 +71,16 @@ func TestFilter(t *testing.T) {
 		if strings.Contains(g, "auth=Bearer") {
 			t.Errorf("Kumo's secret passed to the core: %s", g)
 		}
+	}
+}
+
+func TestRunCheck(t *testing.T) {
+	dir := t.TempDir()
+	ok := filepath.Join(dir, "ok.yaml")
+	os.WriteFile(ok, []byte("mixed-port: 7890\nlisteners:\n  - {name: kumo-test, type: mixed, port: 40000, listen: 127.0.0.1, proxy: KUMO-TEST, udp: true}\n"), 0o600)
+	bad := filepath.Join(dir, "bad.yaml")
+	os.WriteFile(bad, []byte("mixed-port: 7890\nlisteners:\n  - {name: kumo-test, type: mixed, port: 40000, listen: 0.0.0.0, proxy: KUMO-TEST, udp: true}\n"), 0o600)
+	if RunCheck(ok) != 0 || RunCheck(bad) == 0 || RunCheck(filepath.Join(dir, "none")) == 0 {
+		t.Fatal("RunCheck")
 	}
 }

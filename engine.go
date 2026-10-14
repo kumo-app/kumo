@@ -40,7 +40,7 @@ func (k *Kumo) overrides() core.Overrides {
 	c := k.prefs.Core
 	return core.Overrides{
 		Controller: fmt.Sprintf("127.0.0.1:%d", c.Port), Secret: c.Secret,
-		MixedPort: c.MixedPort, Tun: c.Tun, AllowLan: c.AllowLan,
+		MixedPort: c.MixedPort, Tun: c.Tun, AllowLan: c.AllowLan, TestPort: c.TestPort,
 	}
 }
 
@@ -95,6 +95,10 @@ func (k *Kumo) startCore() {
 		k.prefs.Core.Secret = core.NewSecret()
 	}
 	k.prefs.Core.Port = core.FreePort(k.prefs.Core.Port)
+	k.prefs.Core.TestPort = core.FreePort(k.prefs.Core.TestPort)
+	if k.prefs.Core.TestPort == k.prefs.Core.Port || k.prefs.Core.TestPort == k.prefs.Core.MixedPort {
+		k.prefs.Core.TestPort = core.FreePort(0)
+	}
 	_ = k.prefs.save()
 	k.connect()
 	seq := k.coreSeq.Add(1)
@@ -130,6 +134,7 @@ func (k *Kumo) startCore() {
 			if !k.latest(seq) {
 				return
 			}
+			k.freshCore.Store(true)
 			startErr = mgr.Start(path)
 			if startErr != nil || !controllerTaken(mgr, ov.Controller) {
 				break
@@ -568,6 +573,9 @@ func (k *Kumo) shutdown() {
 	}
 	if k.mgr != nil {
 		within(coreBudget, k.mgr.Stop)
+	}
+	if k.stats != nil {
+		_ = k.stats.Save()
 	}
 }
 

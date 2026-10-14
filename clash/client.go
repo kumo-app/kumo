@@ -82,15 +82,24 @@ func (c *Client) do(ctx context.Context, method, path string, body, out any) err
 		msg, _ := io.ReadAll(io.LimitReader(res.Body, 512))
 		var e struct{ Message string }
 		if json.Unmarshal(msg, &e) == nil && e.Message != "" {
-			return fmt.Errorf("%s: %s", res.Status, e.Message)
+			return &StatusError{res.StatusCode, fmt.Sprintf("%s: %s", res.Status, e.Message)}
 		}
-		return fmt.Errorf("%s %s: %s", method, path, res.Status)
+		return &StatusError{res.StatusCode, fmt.Sprintf("%s %s: %s", method, path, res.Status)}
 	}
 	if out != nil {
 		return json.NewDecoder(res.Body).Decode(out)
 	}
 	return nil
 }
+
+// StatusError is an answer of the controller other than success, as
+// opposed to no answer at all.
+type StatusError struct {
+	Code int
+	Msg  string
+}
+
+func (e *StatusError) Error() string { return e.Msg }
 
 // Version is the core's version.
 type Version struct {
@@ -151,6 +160,7 @@ type Proxy struct {
 	All     []string `json:"all"`
 	UDP     bool     `json:"udp"`
 	Hidden  bool     `json:"hidden"`
+	TestURL string   `json:"testUrl"`
 	History []Delay  `json:"history"`
 }
 

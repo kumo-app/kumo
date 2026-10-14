@@ -274,3 +274,27 @@ func TestCheckPatch(t *testing.T) {
 		}
 	}
 }
+
+func TestTestListener(t *testing.T) {
+	prof := strings.Replace(testProfile, "proxy-groups:\n", "proxy-groups:\n  - {name: KUMO-TEST, type: select, proxies: [DIRECT]}\n", 1)
+	out, err := Runtime([]byte(prof), Overrides{Controller: "127.0.0.1:1", TestPort: 40123})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := CheckRuntime(out); err != nil {
+		t.Fatalf("own test listener refused: %v\n%s", err, out)
+	}
+	if n := strings.Count(string(out), "name: KUMO-TEST"); n != 1 {
+		t.Fatalf("%d test groups", n)
+	}
+	for _, bad := range []string{
+		"listeners: [{name: kumo-test, type: mixed, port: 40123, listen: 0.0.0.0, proxy: KUMO-TEST, udp: true}]\n",
+		"listeners: [{name: kumo-test, type: mixed, port: 40123, listen: 127.0.0.1, proxy: KUMO-TEST, udp: true, users: []}]\n",
+		"listeners: [{name: kumo-test, type: tun, port: 40123, listen: 127.0.0.1, proxy: KUMO-TEST, udp: true}]\n",
+		"listeners: [{name: kumo-test, type: mixed, port: 40123, listen: 127.0.0.1, proxy: KUMO-TEST, udp: true}, {name: x, type: mixed, port: 1, listen: 127.0.0.1, proxy: KUMO-TEST, udp: true}]\n",
+	} {
+		if CheckRuntime([]byte(testProfile+bad)) == nil {
+			t.Errorf("accepted %s", bad)
+		}
+	}
+}
