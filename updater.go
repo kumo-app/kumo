@@ -46,6 +46,9 @@ const updateEvery = 24 * time.Hour
 // updateWork is the updater's folder: downloads, the helper, its log.
 func (k *Kumo) updateWork() string { return filepath.Join(k.dataDir, "updates") }
 
+// helperWork is the helper's own folder, where it leaves its result.
+func (k *Kumo) helperWork() string { return filepath.Join(k.updateWork(), "helper") }
+
 func (k *Kumo) feed() *update.Feed {
 	f := &update.Feed{Repo: "kumo-app/kumo", UserAgent: "Kumo/" + version}
 	// For testing against a local copy of GitHub. Manifests and files are
@@ -72,16 +75,16 @@ func (k *Kumo) channel() string {
 // day after, while the setting is on.
 func (k *Kumo) startUpdates() {
 	update.ReportStarted()
-	if r, ok := update.TakeResult(k.updateWork()); ok {
-		switch {
-		case r.OK:
-			k.say(fmt.Sprintf(tr("Kumo was updated to %s."), r.Version))
-		case r.RolledBack:
-			k.say(fmt.Sprintf(tr("The update to %s failed and Kumo %s was kept: %s"), r.Version, version, r.Error))
-		default:
-			k.say(fmt.Sprintf(tr("The update to %s failed: %s"), r.Version, r.Error))
+	// The helper writes its result once this Kumo has reported in.
+	go func() {
+		for range 60 {
+			if r, ok := update.TakeResult(k.helperWork()); ok {
+				k.post(func() { k.reportUpdate(r) })
+				return
+			}
+			time.Sleep(250 * time.Millisecond)
 		}
-	}
+	}()
 	go func() {
 		time.Sleep(8 * time.Second)
 		k.post(func() { k.checkUpdate(false) })
@@ -93,6 +96,18 @@ func (k *Kumo) startUpdates() {
 			})
 		}
 	}()
+}
+
+// reportUpdate tells how the last update went.
+func (k *Kumo) reportUpdate(r *update.Result) {
+	switch {
+	case r.OK:
+		k.say(fmt.Sprintf(tr("Kumo was updated to %s."), r.Version))
+	case r.RolledBack:
+		k.say(fmt.Sprintf(tr("The update to %s failed and Kumo %s was kept: %s"), r.Version, version, r.Error))
+	default:
+		k.say(fmt.Sprintf(tr("The update to %s failed: %s"), r.Version, r.Error))
+	}
 }
 
 // checkUpdate looks for a newer Kumo; manual checks (Check now) also
@@ -161,7 +176,7 @@ func (k *Kumo) startDownload() {
 	ctx, cancel := context.WithCancel(context.Background())
 	u.cancel = cancel
 	u.state, u.err, u.done, u.total = updDownloading, "", 0, a.Size
-	f, work, ver := k.feed(), k.updateWork(), m.Version
+	f, work, helper, ver := k.feed(), k.updateWork(), k.helperWork(), m.Version
 	go func() {
 		last := time.Time{}
 		path, err := f.Download(ctx, a, filepath.Join(work, "download"), func(done, total int64) {
@@ -177,7 +192,7 @@ func (k *Kumo) startDownload() {
 					u.state = updAvailable
 					return
 				}
-				u.state, u.err = updFailed, err.Error()
+				u.state, u.err = updFailed, tr("The download failed or did not verify, and was discarded: ")+err.Error()
 			})
 			return
 		}
@@ -188,7 +203,10 @@ func (k *Kumo) startDownload() {
 			})
 			return
 		}
-		plan, err := update.Prepare(in, path, ver, filepath.Join(work, "helper"))
+		plan, err := update.Prepare(in, path, ver, helper)
+		if err == nil && in.Kind != update.WinSetup {
+			os.Remove(path) // unpacked beside the install
+		}
 		k.post(func() {
 			if err != nil {
 				u.state, u.err = updFailed, err.Error()
@@ -361,15 +379,19 @@ func (k *Kumo) updateSettings(c *ui.Context, s skin) {
 			_ = k.prefs.save()
 		}
 	})
+	sp := " " // between sentences; Chinese needs none
+	if lang == "zh" {
+		sp = ""
+	}
 	detail := fmt.Sprintf(tr("Kumo %s."), version)
 	if t := k.prefs.App.LastUpdateCheck; t > 0 {
-		detail += " " + fmt.Sprintf(tr("Last checked %s."), time.Unix(t, 0).Format("2006-01-02 15:04"))
+		detail += sp + fmt.Sprintf(tr("Last checked %s."), time.Unix(t, 0).Format("2006-01-02 15:04"))
 	}
 	switch {
 	case u.state == updUpToDate:
-		detail += " " + tr("Up to date.")
+		detail += sp + tr("Up to date.")
 	case u.latest != nil && u.state != updChecking:
-		detail += " " + fmt.Sprintf(tr("Version %s is available."), u.latest.Version)
+		detail += sp + fmt.Sprintf(tr("Version %s is available."), u.latest.Version)
 	}
 	setting(c, s, tr("Software update"), detail, func() {
 		ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {

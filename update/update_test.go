@@ -340,6 +340,9 @@ func TestApplyRollsBack(t *testing.T) {
 	if b, _ := os.ReadFile(filepath.Join(in.Target, "kumo")); string(b) != "old" {
 		t.Fatalf("exe after rollback is %q", b)
 	}
+	if b, _ := os.ReadFile(filepath.Join(in.Target, "notes.txt")); string(b) != "mine" {
+		t.Fatal("the user's file was lost in the rollback")
+	}
 	entries, _ := os.ReadDir(filepath.Dir(in.Target))
 	if len(entries) != 1 {
 		t.Fatalf("left behind: %v", entries)

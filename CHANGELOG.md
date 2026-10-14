@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased (auto-update)
+
+- Online updates: Kumo checks at launch and once a day (Settings › Updates: on/off, Stable or Beta channel, Check now) and offers a new version with its notes: Update now, Later (also Escape), or Skip this version.
+- Updates are verified before anything changes: the manifest (`latest.json`) is signed with Ed25519, and every file has its own SHA-256 and signature, checked against the public key built into Kumo. The release workflow signs with the `KUMO_UPDATE_KEY` secret and refuses a key that does not match.
+- The download runs in the background with progress and resumes after an interruption. Quitting restores the system proxy as always; then a helper swaps in the new `Kumo.app` (quarantine removed from our own verified copy), portable or `tar.gz` folder, or runs the Windows installer silently, and starts the new version. If it does not start, the previous version is put back and Kumo says so. A `.deb` install is downloaded, verified and opened in the package manager.
 
 ## 0.4.4
 

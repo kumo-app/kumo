@@ -67,6 +67,25 @@ The builds are **not code-signed**:
   `xattr -dr com.apple.quarantine /Applications/Kumo.app`.
 - **Windows:** if SmartScreen appears, click **More info** › **Run anyway**.
 
+### Updates
+
+Kumo checks for a new version at launch and once a day (Settings › Updates:
+turn it off, choose the Stable or Beta channel, or **Check now**). It shows
+the release notes and installs only when you choose **Update now**; **Later**
+asks again next time, **Skip this version** waits for the one after.
+
+- Every release carries `latest.json`, signed with Ed25519; each file in it has
+  its own SHA-256 and signature. Kumo refuses anything that does not verify
+  against the public key built into it.
+- macOS (`Kumo.app`), Windows (installer or portable folder) and Linux
+  (`tar.gz` folder) update in place: Kumo restores the system proxy, quits,
+  and a helper swaps in the new copy and starts it. If the new version does
+  not start, the previous one is put back. A `.deb` install is downloaded,
+  verified, and handed to your package manager.
+- With Enhanced Mode on, Kumo asks for an administrator's authorization once
+  more after updating, because its helper trusts only the exact build that
+  set it up.
+
 ## Quick start
 
 1. **Add a subscription.** Open **Subscriptions**, paste your provider's

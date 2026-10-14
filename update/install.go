@@ -495,8 +495,9 @@ func apply(p *Plan, lg *log.Logger) Result {
 		startPlain(exe, lg)
 		return r
 	}
+	var carried []string
 	if p.Kind != MacApp {
-		carryOver(old, p.Target, lg)
+		carried = carryOver(old, p.Target, lg)
 	}
 	if started(exe, p.Wait, lg) {
 		r.OK = true
@@ -507,6 +508,11 @@ func apply(p *Plan, lg *log.Logger) Result {
 	}
 	r.Error = "the new version did not start"
 	lg.Print(r.Error + "; rolling back")
+	for _, name := range carried {
+		if err := os.Rename(filepath.Join(p.Target, name), filepath.Join(old, name)); err != nil {
+			lg.Printf("putting back %s: %v", name, err)
+		}
+	}
 	_ = os.RemoveAll(p.Target + ".failed")
 	if err := os.Rename(p.Target, p.Target+".failed"); err != nil {
 		lg.Printf("moving the failed version aside: %v", err)
@@ -529,10 +535,10 @@ func restore(p *Plan, old string, lg *log.Logger) bool {
 
 // carryOver moves into the new folder what the user kept in the old one
 // that the new version does not ship.
-func carryOver(old, target string, lg *log.Logger) {
+func carryOver(old, target string, lg *log.Logger) (moved []string) {
 	entries, err := os.ReadDir(old)
 	if err != nil {
-		return
+		return nil
 	}
 	for _, e := range entries {
 		if _, err := os.Lstat(filepath.Join(target, e.Name())); err == nil {
@@ -540,8 +546,10 @@ func carryOver(old, target string, lg *log.Logger) {
 		}
 		if err := os.Rename(filepath.Join(old, e.Name()), filepath.Join(target, e.Name())); err == nil {
 			lg.Printf("kept %s", e.Name())
+			moved = append(moved, e.Name())
 		}
 	}
+	return moved
 }
 
 // started launches exe and waits for it to write its OK file.

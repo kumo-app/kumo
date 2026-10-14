@@ -287,4 +287,5 @@ var zhTW = map[string]string{
 	"Software update":          "軟體更新",
 	"Show":                     "顯示",
 	"Check now":                "立即檢查",
+	"The download failed or did not verify, and was discarded: ": "下載失敗或未通過驗證，已捨棄：",
 }
