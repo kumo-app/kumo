@@ -19,6 +19,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -221,10 +222,22 @@ func TestDetect(t *testing.T) {
 		{"/usr/local/bin/kumo", "darwin", "", "", ReasonUnknown},
 	}
 	for _, c := range cases {
+		if runtime.GOOS == "windows" {
+			break // the cases are slash paths
+		}
 		in := Detect(c.exe, c.goos)
 		if in.Kind != c.kind || in.Target != c.target || in.Manual != c.manual {
 			t.Errorf("Detect(%s) = %+v", c.exe, in)
 		}
+	}
+	dir := t.TempDir()
+	exe := filepath.Join(dir, "Kumo.exe")
+	if in := Detect(exe, "windows"); in.Kind != WinPortable || in.Target != dir || in.Exe != "Kumo.exe" {
+		t.Errorf("portable: %+v", in)
+	}
+	os.WriteFile(filepath.Join(dir, "Uninstall.exe"), nil, 0o600)
+	if in := Detect(exe, "windows"); in.Kind != WinSetup {
+		t.Errorf("installed: %+v", in)
 	}
 	if Key("darwin", "arm64", MacApp) != "darwin-universal-app" || Key("windows", "amd64", WinSetup) != "windows-amd64-setup" {
 		t.Fatal("Key")
