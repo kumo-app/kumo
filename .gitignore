@@ -1,0 +1,7 @@
+# Build output and mygo caches
+/build/
+/.mygo/
+mygo_windows_*.syso
+
+# Cores fetched by scripts/fetch-core
+/resources/*-*/core/

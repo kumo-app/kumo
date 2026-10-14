@@ -1,0 +1,119 @@
+name: CI
+
+on:
+  push:
+    branches: [main, rewrite-mygo]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+# Jobs read the repository; only the release job writes.
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: ${{ matrix.target }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: linux, runner: ubuntu-latest, platforms: "linux/amd64,linux/arm64" }
+          - { target: windows, runner: windows-latest, platforms: "windows/amd64" }
+          - { target: macos, runner: macos-latest, platforms: "darwin/universal" }
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Fetch pinned mihomo core
+        run: go run ./scripts/fetch-core -platform ${{ matrix.platforms }}
+      - name: Vet
+        run: go vet ./...
+      - name: Test (race detector)
+        run: go test -race ./...
+      - name: Restore system proxy with the real networksetup (macOS)
+        if: matrix.target == 'macos'
+        run: sudo -E env KUMO_REAL_NETWORKSETUP=1 PATH="$PATH" HOME="$HOME" GOCACHE="$(go env GOCACHE)" GOMODCACHE="$(go env GOMODCACHE)" go test -count=1 -v -run TestRealNetworksetupRestore ./sysproxy
+      - name: Package
+        run: go tool mygo build -platform ${{ matrix.platforms }}
+      - name: Check Kumo has a cdhash for the helper's client check (macOS)
+        if: matrix.target == 'macos'
+        run: |
+          exe=$(ls build/darwin-universal/Kumo.app/Contents/MacOS/* | head -1)
+          codesign -dvvv "$exe" 2>&1 | grep -E '^(CDHash|Signature)='
+          h=$(codesign -dvvv "$exe" 2>&1 | sed -n 's/^CDHash=//p')
+          test -n "$h"
+          "$exe" & pid=$!; sleep 2
+          codesign --verify -R="cdhash H\"$h\"" "$pid"
+          echo "PASS: running Kumo matches its cdhash"
+          if codesign --verify -R="cdhash H\"0000000000000000000000000000000000000000\"" "$pid"; then echo "FAIL: wrong cdhash accepted"; exit 1; fi
+          echo "PASS: a wrong cdhash is refused"
+          kill $pid || true
+      - name: Check the bundled core against its pin
+        shell: bash
+        run: |
+          set -euo pipefail
+          sum() { if command -v sha256sum >/dev/null; then sha256sum "$1"; else shasum -a 256 "$1"; fi | cut -d' ' -f1; }
+          for f in build/linux-*/core/mihomo build/windows-amd64/core/mihomo.exe build/darwin-universal/Kumo.app/Contents/Resources/core/mihomo; do
+            [ -f "$f" ] || continue
+            h=$(sum "$f")
+            echo "$f: $h"
+            grep -q "\"$h\"" corepin/corepin.go || { echo "::error::$f ($h) is not pinned in corepin/corepin.go and scripts/fetch-core/core.lock.json; Enhanced Mode would refuse it"; exit 1; }
+          done
+      - name: Quit and crash-recovery test
+        if: matrix.target == 'linux'
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q xvfb libgtk-3-0t64 libepoxy0
+          xvfb-run -a sh scripts/quit-test.sh build/linux-amd64/kumo
+      - name: Gather artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(jq -r .version mygo.json)
+          mkdir -p out
+          case "${{ matrix.target }}" in
+            linux)
+              cp build/linux-*/*.deb build/linux-*/*.tar.gz out/ ;;
+            windows)
+              find build/windows-amd64 -maxdepth 1 -name '*Setup*.exe' -exec cp {} out/ \;
+              mkdir -p stage/Kumo
+              cp -r build/windows-amd64/Kumo.exe build/windows-amd64/core build/windows-amd64/icon.png stage/Kumo/
+              (cd stage && 7z a -tzip "../out/Kumo-${version}-windows-amd64-portable.zip" Kumo > /dev/null) ;;
+            macos)
+              ditto -c -k --keepParent build/darwin-universal/Kumo.app "out/Kumo-${version}-macos-universal.app.zip"
+              find build/darwin-universal -maxdepth 1 -name '*.dmg' -exec cp {} out/ \; ;;
+          esac
+          cd out
+          for f in *' '*; do [ -e "$f" ] && mv "$f" "${f// /-}"; done
+          ls -l
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kumo-${{ matrix.target }}
+          path: out/*
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd out
+          sha256sum * > SHA256SUMS
+          cat SHA256SUMS
+          gh release create "$GITHUB_REF_NAME" * --repo "$GITHUB_REPOSITORY" \
+            --title "Kumo $GITHUB_REF_NAME" \
+            --notes "Kumo $GITHUB_REF_NAME. MIT licensed. Bundles the mihomo core v1.19.32 (GPL-3.0, unmodified; source: https://github.com/MetaCubeX/mihomo/tree/v1.19.32). Builds are not code-signed: on macOS right-click › Open the first time; on Windows choose More info › Run anyway in SmartScreen. Checksums are in SHA256SUMS."

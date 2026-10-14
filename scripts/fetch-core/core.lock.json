@@ -1,0 +1,12 @@
+{
+  "repo": "MetaCubeX/mihomo",
+  "version": "v1.19.32",
+  "assets": {
+    "linux-amd64":   {"file": "mihomo-linux-amd64-compatible-v1.19.32.gz", "sha256": "ba3ce607747a07f948fc35780e108a4a7c7f552a38b9bd4d115f313ebcb89c20", "binary": "7a0d59da2e678d56c899a3db996a2ad8963286c4f3634b0451435db248f13fa1"},
+    "linux-arm64":   {"file": "mihomo-linux-arm64-v1.19.32.gz", "sha256": "9dd862e28b46ff7d775f169cceebc28deccaa0a9e804237d421cd2571e0caba0", "binary": "c80df2ca5159567804da883401e0118908fc1155e05df2baf3dbd4d3ecfc3754"},
+    "darwin-amd64":  {"file": "mihomo-darwin-amd64-compatible-v1.19.32.gz", "sha256": "18b382df77bded2ad0fb3db27db5636cb15b20729d5ba995a357eeb9b46bf507", "binary": "c666c4dd92a2c27c24ff56c9fe42e115f7de94467d45b1eb8caf88f6235e2e7b"},
+    "darwin-arm64":  {"file": "mihomo-darwin-arm64-v1.19.32.gz", "sha256": "3312a6780652c622890fd4357c6a853bbf865464fd047ac7b7f52dab8de18652", "binary": "94a386ec0149080deadd86b1f667363bde3c70f7489dba3258e52c56fc9a6d66"},
+    "windows-amd64": {"file": "mihomo-windows-amd64-compatible-v1.19.32.zip", "sha256": "974a4d7ad69aed27aa2e8f91d61113573c14dadb14562c63e58effabf59816f0", "binary": "04f8d7fc2b314771e1ecbf15951d59f0e1cb7914503c88cfb6972ff6a824e314"}
+  },
+  "packaged": {"darwin-universal": "e76e38a3621da8385c955d13d42287c2e3987d577c986a6426a78b5cef3d9809"}
+}
