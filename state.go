@@ -249,7 +249,9 @@ func (k *Kumo) streams(ctx context.Context, cli *clash.Client, gen int) {
 		})
 	}
 	follow(ctx, cli, "/traffic", nil, func(t clash.Traffic) {
-		live(func() { k.traffic = t; k.upHist.push(t.Up); k.dnHist.push(t.Down) })
+		// The menu bar speed follows the feed itself: with the window
+		// hidden no frame is drawn, so the view cannot keep it current.
+		live(func() { k.traffic = t; k.upHist.push(t.Up); k.dnHist.push(t.Down); k.syncSpeed() })
 	})
 	follow(ctx, cli, "/memory", nil, func(m clash.Memory) {
 		live(func() { k.memory = m.InUse; k.memHist.push(m.InUse) })
