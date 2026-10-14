@@ -16,6 +16,7 @@ import (
 
 	"kumo/core"
 	"kumo/tun"
+	"kumo/update"
 )
 
 func main() {
@@ -31,6 +32,9 @@ func main() {
 	}
 	if root := os.Getenv(tun.ClientEnv); root != "" {
 		os.Exit(tun.RunClient(root, os.Args[1:]))
+	}
+	if plan := os.Getenv(update.PlanEnv); plan != "" {
+		os.Exit(update.RunHelper(plan))
 	}
 	if !mygo.App.RequestSingleInstanceLock() {
 		return
@@ -100,6 +104,7 @@ func main() {
 			Content:              ui.View(k.view),
 		})
 		k.installTray()
+		k.startUpdates()
 		if runtime.GOOS == "darwin" {
 			k.dockMenu = true
 			k.refreshMenus()

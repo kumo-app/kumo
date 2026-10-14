@@ -86,6 +86,7 @@ type Kumo struct {
 	autoDone  bool
 
 	quitting bool
+	upd      appUpdate // the in-app updater
 	notice   string
 
 	// Page state.

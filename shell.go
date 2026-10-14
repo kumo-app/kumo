@@ -69,6 +69,7 @@ func (k *Kumo) view(c *ui.Context) {
 		area.Children(func() { shown.build(c, s) })
 	})
 	k.tools(c, s)
+	k.updateDialog(c, s)
 	k.syncMenus()
 }
 

@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, rewrite-mygo]
+    branches: [main]
     tags: ["v*"]
   pull_request:
   workflow_dispatch:
@@ -103,10 +103,20 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
       - uses: actions/download-artifact@v4
         with:
           path: out
           merge-multiple: true
+      - name: Sign the update manifest
+        env:
+          KUMO_UPDATE_KEY: ${{ secrets.KUMO_UPDATE_KEY }}
+        run: go run ./scripts/release-manifest -dir out -version "${GITHUB_REF_NAME#v}" -repo "$GITHUB_REPOSITORY"
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -114,6 +124,8 @@ jobs:
           cd out
           sha256sum * > SHA256SUMS
           cat SHA256SUMS
-          gh release create "$GITHUB_REF_NAME" * --repo "$GITHUB_REPOSITORY" \
+          pre=""
+          case "$GITHUB_REF_NAME" in *-*) pre="--prerelease" ;; esac
+          gh release create "$GITHUB_REF_NAME" * $pre --repo "$GITHUB_REPOSITORY" \
             --title "Kumo $GITHUB_REF_NAME" \
             --notes "Kumo $GITHUB_REF_NAME. MIT licensed. Bundles the mihomo core v1.19.32 (GPL-3.0, unmodified; source: https://github.com/MetaCubeX/mihomo/tree/v1.19.32). Builds are not code-signed: on macOS right-click › Open the first time; on Windows choose More info › Run anyway in SmartScreen. Checksums are in SHA256SUMS."

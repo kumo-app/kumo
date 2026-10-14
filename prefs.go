@@ -41,6 +41,14 @@ type Prefs struct {
 		Language     string `json:"language"`
 		// HideTraySpeed turns off the speed beside the tray icon (on by default).
 		HideTraySpeed bool `json:"hideTraySpeed"`
+		// NoUpdateCheck turns off the daily check for a new Kumo.
+		NoUpdateCheck bool `json:"noUpdateCheck"`
+		// UpdateChannel is "stable" or "beta".
+		UpdateChannel string `json:"updateChannel"`
+		// SkipVersion is a version the user chose to skip.
+		SkipVersion string `json:"skipVersion,omitempty"`
+		// LastUpdateCheck is when Kumo last looked (Unix seconds).
+		LastUpdateCheck int64 `json:"lastUpdateCheck,omitempty"`
 	} `json:"app"`
 	UI struct {
 		AdvancedMode  bool `json:"advancedMode"`

@@ -99,6 +99,7 @@ func (k *Kumo) settingsPage(c *ui.Context, s skin) {
 				k.refreshMenus()
 			}
 		})
+		k.updateSettings(c, s)
 		section(c, s, tr("ABOUT"))
 		ui.Text(c, fmt.Sprintf(tr("Kumo %s is a simple desktop client for Clash / mihomo, built with MyGo and MIT licensed. It bundles the mihomo core (GPL-3.0)."), version)).
 			FontSize(13).TextColor(s.muted).LineHeight(1.45).Padding(10, 0)
