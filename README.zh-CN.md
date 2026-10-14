@@ -7,10 +7,12 @@
 <p align="center">快速、原生的 mihomo（Clash）桌面客户端：一个开关即可连接，完整仪表盘尽在眼前。</p>
 
 <p align="center">
-  <a href="https://github.com/kumo-app/kumo/releases/latest"><img src="https://img.shields.io/badge/release-v0.4.4-3b82f6" alt="版本 v0.4.4"></a>
+  <a href="https://github.com/kumo-app/kumo/releases/latest"><img src="https://img.shields.io/github/v/release/kumo-app/kumo?color=3b82f6" alt="最新版本"></a>
   <img src="https://img.shields.io/badge/platforms-macOS%20%7C%20Windows%20%7C%20Linux-6b7280" alt="平台：macOS、Windows、Linux">
   <img src="https://img.shields.io/badge/core-mihomo%20v1.19.32-10b981" alt="内置内核：mihomo v1.19.32">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-0ea5e9" alt="许可证：MIT"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/kumo-app/kumo?color=0ea5e9" alt="许可证：MIT"></a>
+  <a href="https://github.com/kumo-app/kumo/actions/workflows/release.yml"><img src="https://img.shields.io/github/actions/workflow/status/kumo-app/kumo/release.yml?branch=main" alt="CI"></a>
+  <a href="https://github.com/kumo-app/kumo/releases"><img src="https://img.shields.io/github/downloads/kumo-app/kumo/total?color=8b5cf6" alt="Downloads"></a>
 </p>
 
 <p align="center"><a href="README.md">English</a> | <b>简体中文</b></p>
