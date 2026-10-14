@@ -13,6 +13,8 @@ import (
 
 	"kumo/clash"
 	"kumo/core"
+	"kumo/monitor"
+	"kumo/stats"
 )
 
 // historyLen is how many one-second samples the charts keep.
@@ -72,6 +74,20 @@ type Kumo struct {
 	memHist series
 	logs    []clash.Log
 	testing map[string]bool
+
+	// Statistics, the node monitor and node tests (features.go).
+	stats      *stats.Store
+	mon        *monitor.Monitor
+	monCli     atomic.Pointer[clash.Client]
+	monTargets atomic.Pointer[[]monitor.Target]
+	freshCore  atomic.Bool // the core was (re)started since the last session
+	nodeTest   nodeTestState
+	detail     string // the node whose sheet is open
+	detailOpen bool
+	statsRange int
+	statsAsk   bool
+	hotkeyRec  string // the action whose shortcut is being recorded
+	hotkeyErr  map[string]string
 
 	// The bundled core.
 	coreVersion string
@@ -156,6 +172,7 @@ func (k *Kumo) connect() {
 	k.gen++
 	k.cli = &clash.Client{Host: host, Port: port, Secret: secret, TLS: !k.bundled() && k.prefs.Controller.TLS}
 	k.setTunCtl(k.cli)
+	k.monCli.Store(k.cli)
 	k.online = false
 	ctx, cancel := context.WithCancel(context.Background())
 	k.cancel = cancel
@@ -188,6 +205,9 @@ func (k *Kumo) watch(ctx context.Context, cli *clash.Client, gen int) {
 			k.onOnline()
 			k.refreshMenus()
 		})
+		if k.stats != nil {
+			k.stats.NewCore(k.freshCore.Swap(false))
+		}
 		session, end := context.WithCancel(ctx)
 		k.streams(session, cli, gen)
 		tick := time.NewTicker(15 * time.Second)
@@ -234,6 +254,9 @@ func (k *Kumo) streams(ctx context.Context, cli *clash.Client, gen int) {
 		live(func() { k.memory = m.InUse; k.memHist.push(m.InUse) })
 	})
 	follow(ctx, cli, "/connections", url.Values{"interval": {"1000"}}, func(c clash.Connections) {
+		if k.stats != nil {
+			k.stats.Record(c)
+		}
 		live(func() { k.conns = c })
 	})
 	k.logFeed = func() {
@@ -336,6 +359,7 @@ func (k *Kumo) refresh() {
 			if e2 == nil {
 				k.proxies = proxies
 				k.groups = groupOrder(proxies)
+				k.updateTargets()
 			}
 			if rules != nil {
 				k.rules = rules

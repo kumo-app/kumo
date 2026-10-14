@@ -70,7 +70,9 @@ say() { echo "$1" > "$L/state"; }
 # Kumo writes plain block YAML without these keys; refuse anything else at
 # the top level, so a configuration cannot open listeners to the network
 # or hide keys behind quotes, flow style, merge keys, anchors or tags.
-safe() { ! grep -Eq '^([^[:space:]#a-z]|(listeners|tunnels|redir-port|tproxy-port|ss-config|vmess-config|tuic-server|shadowsocks-config|external-controller-tls|external-controller-pipe|external-controller-unix|external-doh-server|external-ui|external-ui-url)[[:space:]]*:)' "$1"; }
+# Then the filter (Kumo) parses it and allows no listener but Kumo's test
+# listener on loopback (core.CheckRuntime).
+safe() { ! grep -Eq '^([^[:space:]#a-z]|(tunnels|redir-port|tproxy-port|ss-config|vmess-config|tuic-server|shadowsocks-config|external-controller-tls|external-controller-pipe|external-controller-unix|external-doh-server|external-ui|external-ui-url)[[:space:]]*:)' "$1"; }
 C=%[7]s
 signed() { [ -z "$C" ] || codesign --verify -R="cdhash H\"$C\"" "$1" 2>/dev/null; }
 client() { kill -0 "$1" 2>/dev/null && ps -p "$1" -o comm= | grep -qi kumo; }
@@ -84,7 +86,7 @@ while :; do
 	if ! sudo -n -u "#$U" /bin/cat "$Q/config.yaml" > "$H/config.yaml.new"; then
 		say "stopped $nonce 2"; exit 0
 	fi
-	if ! safe "$H/config.yaml.new"; then
+	if ! safe "$H/config.yaml.new" || ! env -i KUMO_CONFIG_CHECK="$H/config.yaml.new" "$R/kumo-filter" > /dev/null 2>&1; then
 		echo "Kumo helper: the configuration opens listeners or hides keys; refused." > "$L/core.log"
 		say "stopped $nonce 3"; exit 0
 	fi

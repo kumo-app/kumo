@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"github.com/egoist/mygo"
+
+	"kumo/core"
 )
 
 // entry is one item of Kumo's quick menus (tray and Dock), kept apart from
@@ -86,6 +88,9 @@ func (k *Kumo) groupEntry(name string, off bool) entry {
 	g := k.proxies[name]
 	sub := []entry{{label: tr("Use fastest"), disabled: off, do: func() { k.pickFastest(name) }}, separator}
 	for _, n := range g.All {
+		if n == core.TestGroup {
+			continue
+		}
 		text := n
 		if p, ok := k.proxies[n]; ok && !p.IsGroup() && len(p.History) > 0 {
 			text += "    " + latencyText(p.LastDelay(), true)

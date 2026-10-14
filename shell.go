@@ -21,6 +21,7 @@ func (k *Kumo) pages() []page {
 		{"/subscriptions", "folder-open", tr("Subscriptions"), k.subsPage},
 		{"/rules", "list-filter", tr("Rules"), k.rulesPage},
 		{"/connections", "cable", tr("Connections"), k.connsPage},
+		{"/statistics", "chart-column", tr("Statistics"), k.statsPage},
 		{"/logs", "scroll-text", tr("Logs"), k.logsPage},
 		{"/core", "wrench", tr("Core"), k.corePage},
 		{"/config", "file-code", tr("Configuration"), k.configPage},
@@ -46,6 +47,9 @@ func (k *Kumo) view(c *ui.Context) {
 	c.Root().Background(s.bottom).TextColor(s.text)
 
 	current := k.router.Path()
+	if k.hotkeyRec != "" && current != "/settings" {
+		k.recordHotkey("")
+	}
 	shown := k.pages()[0]
 	for _, p := range k.pages() {
 		if p.path == current {
@@ -96,7 +100,7 @@ func (k *Kumo) sidebar(c *ui.Context, s skin, current string) {
 	outer.Children(func() {
 		ui.Column(c).Width(sideWidth).Grow(1).Padding(barHeight+4, 10, 10, 10).Gap(4).DragWindow().Children(func() {
 			pg := k.pages()
-			for i, p := range pg[:6] {
+			for i, p := range pg[:7] {
 				badge := 0
 				if i == 4 {
 					badge = len(k.conns.Connections)
@@ -104,13 +108,13 @@ func (k *Kumo) sidebar(c *ui.Context, s skin, current string) {
 				k.navItem(c, s, p, current, badge)
 			}
 			if k.prefs.UI.AdvancedMode {
-				k.navItem(c, s, pg[6], current, 0)
 				k.navItem(c, s, pg[7], current, 0)
+				k.navItem(c, s, pg[8], current, 0)
 			}
 			ui.Spacer(c)
 			k.statusLine(c, s)
 			ui.Divider(c).Background(s.line).Margin(4, 0)
-			k.navItem(c, s, pg[8], current, 0)
+			k.navItem(c, s, pg[9], current, 0)
 		})
 	})
 }

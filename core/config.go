@@ -42,6 +42,21 @@ type Overrides struct {
 	// AllowLan opens the proxy to the local network, which only Kumo
 	// decides.
 	AllowLan bool
+	// TestPort, when set, opens Kumo's node test listener on loopback:
+	// see TestGroup.
+	TestPort int
+}
+
+// TestGroup and TestListener are how Kumo tests one node (download speed,
+// UDP) without touching the user's choice: a hidden selector of every
+// node, and a mixed listener on 127.0.0.1 that always goes through it.
+const (
+	TestGroup    = "KUMO-TEST"
+	TestListener = "kumo-test"
+)
+
+func testListener(port int) map[string]any {
+	return map[string]any{"name": TestListener, "type": "mixed", "port": port, "listen": "127.0.0.1", "proxy": TestGroup, "udp": true}
 }
 
 // Runtime merges the overrides into a profile, giving the configuration
@@ -90,6 +105,15 @@ func Runtime(profile []byte, ov Overrides) ([]byte, error) {
 		}
 	}
 	m["tun"] = tunBlock(m["tun"], ov.Tun)
+	if ov.TestPort > 0 {
+		groups, _ := m["proxy-groups"].([]any)
+		groups = slices.DeleteFunc(slices.Clone(groups), func(g any) bool {
+			gm, _ := g.(map[string]any)
+			return gm["name"] == TestGroup
+		})
+		m["proxy-groups"] = append(groups, map[string]any{"name": TestGroup, "type": "select", "include-all": true, "hidden": true})
+		m["listeners"] = []any{testListener(ov.TestPort)}
+	}
 	// mihomo's keys are lowercase; the macOS helper refuses others.
 	for k := range m {
 		if k == "" || k[0] < 'a' || k[0] > 'z' {
@@ -203,7 +227,12 @@ func CheckRuntime(data []byte) error {
 			return fmt.Errorf("unexpected key %q", k)
 		}
 	}
-	for _, k := range append(append([]string{}, inbounds...), "external-controller-tls", "external-controller-unix", "external-controller-pipe", "external-doh-server", "external-ui", "external-ui-url", "external-ui-name", "external-controller-cors") {
+	if l, ok := m["listeners"]; ok {
+		if err := checkListeners(l); err != nil {
+			return err
+		}
+	}
+	for _, k := range append(slices.DeleteFunc(slices.Clone(inbounds), func(k string) bool { return k == "listeners" }), "external-controller-tls", "external-controller-unix", "external-controller-pipe", "external-doh-server", "external-ui", "external-ui-url", "external-ui-name", "external-controller-cors") {
 		if _, ok := m[k]; ok {
 			return fmt.Errorf("%s is not allowed", k)
 		}
@@ -275,6 +304,33 @@ func CheckPatch(body map[string]any) error {
 			if _, ok := t["enable"].(bool); !ok {
 				return errors.New("only tun.enable may be changed")
 			}
+		}
+	}
+	return nil
+}
+
+// checkListeners allows Kumo's test listener only, exactly as Runtime
+// writes it.
+func checkListeners(v any) error {
+	l, ok := v.([]any)
+	if !ok || len(l) != 1 {
+		return errors.New("listeners are not allowed")
+	}
+	got, ok := l[0].(map[string]any)
+	if !ok {
+		return errors.New("listeners are not allowed")
+	}
+	port, ok := got["port"].(int)
+	if !ok || port < 1024 || port > 65535 {
+		return errors.New("listeners are not allowed")
+	}
+	want := testListener(port)
+	if len(got) != len(want) {
+		return errors.New("listeners are not allowed")
+	}
+	for k, v := range want {
+		if got[k] != v {
+			return errors.New("listeners are not allowed")
 		}
 	}
 	return nil

@@ -30,6 +30,13 @@
   active subscription with usage and expiry.
 - **Nodes at a glance.** Every proxy group as a card, color-coded latency,
   test all, sort by latency, and one click to switch to the fastest node.
+- **Statistics.** Traffic by day and month, by app, node and proxy group,
+  kept on your computer as a small file (90 days, 24 months).
+- **Node monitor and tests.** Background latency checks give each node its
+  uptime, p95, jitter and outages for the session; test a node's download
+  speed or UDP support without changing your choice.
+- **Global shortcuts.** Toggle the system proxy or Enhanced Mode, switch
+  mode, show or hide Kumo from anywhere (off until you set them).
 - **Subscriptions.** Add by link (auto update every 6/12/24 h) or import a
   local YAML file; switching reloads the core without restarting it.
 - **Live activity.** Rules, connections (with chains, rules and traffic, each
@@ -161,6 +168,9 @@ installer are built on macOS and Windows CI runners.
 |---|---|
 | `clash/` | Controller client (REST + WebSocket) |
 | `core/` | Runs the bundled core, builds its runtime config, manages subscriptions |
+| `stats/` | Traffic statistics: per day/month, app, node and group, one gzip JSON file |
+| `monitor/` | Session node monitor: latency samples, outages, uptime (memory only) |
+| `nodetest/` | Per-node download speed and UDP checks through the test listener |
 | `sysproxy/` | System proxy for macOS, Windows and Linux, with backup and restore |
 | `main.go`, `state.go`, `engine.go`, `tray.go` | App start, live state, core and proxy lifecycle, tray and menus |
 | `shell.go`, `look.go`, `chart.go` | Window layout, visual style, charts |

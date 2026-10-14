@@ -7,6 +7,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"kumo/clash"
+	"kumo/core"
 )
 
 func (k *Kumo) nodesPage(c *ui.Context, s skin) {
@@ -45,6 +46,7 @@ func (k *Kumo) nodesPage(c *ui.Context, s skin) {
 	if w, _ := c.Size(); w-k.sideShown() > 1100 {
 		cols = 4
 	}
+	k.nodeSheet(c, s)
 	sheetScroll(c, 16, func() {
 		ui.Column(c).Gap(16).Children(func() {
 			for _, name := range k.groups {
@@ -98,7 +100,7 @@ func (k *Kumo) groupBlock(c *ui.Context, s skin, g clash.Proxy, cols int) {
 				k.pickFastest(g.Name)
 			}
 		})
-		names := slices.Clone(g.All)
+		names := slices.DeleteFunc(slices.Clone(g.All), func(n string) bool { return n == core.TestGroup })
 		if k.prefs.UI.SortByLatency {
 			slices.SortStableFunc(names, func(a, b string) int { return rank(k.proxies[a]) - rank(k.proxies[b]) })
 		}
@@ -143,6 +145,16 @@ func (k *Kumo) nodeCard(c *ui.Context, s skin, g clash.Proxy, name string, manua
 			if chosen {
 				ui.Icon(c, glyph("check")).FontSize(14).TextColor(s.accent)
 			}
+			if testable(p) {
+				info := ui.ButtonBase(c.Key("info")).Size(22, 22).Radius(11).Center().Label(tr("Node details")).Tooltip(tr("Latency history, outages and tests"))
+				if info.Hovered() {
+					info.Background(s.hover)
+				}
+				info.Children(func() { ui.Icon(c, glyph("activity")).FontSize(13).TextColor(s.muted) })
+				if info.Clicked() {
+					k.openNode(name)
+				}
+			}
 		})
 		ui.Row(c).AlignItems(ui.Center).Gap(6).Children(func() {
 			kind := p.Type
@@ -159,6 +171,7 @@ func (k *Kumo) nodeCard(c *ui.Context, s skin, g clash.Proxy, name string, manua
 			ui.Text(c, latencyText(ms, tested)).FontSize(11).FontWeight(600).FontFeatures("tnum").Padding(1, 6).Radius(4).
 				Background(col.Alpha(0.14)).TextColor(col).SingleLine()
 		})
+		k.cardMonitor(c, s, name)
 	})
 	if b.Clicked() {
 		if manual {

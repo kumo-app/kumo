@@ -41,6 +41,23 @@ func RunFilter(socket string) int {
 	return serveFilter(l, socket, secret)
 }
 
+// CheckEnv names the variable that has Kumo's executable check, for the
+// helper, the configuration file it names against kcore.CheckRuntime.
+const CheckEnv = "KUMO_CONFIG_CHECK"
+
+// RunCheck checks a configuration file, exiting 0 when it may be loaded.
+func RunCheck(path string) int {
+	data, err := os.ReadFile(path)
+	if err == nil {
+		err = kcore.CheckRuntime(data)
+	}
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "kumo:", err)
+		return 3
+	}
+	return 0
+}
+
 func serveFilter(l net.Listener, socket, secret string) int {
 	if err := http.Serve(l, filterHandler(socket, secret)); err != nil {
 		return 1

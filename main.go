@@ -26,6 +26,9 @@ func main() {
 		core.RunWatchdog(pid)
 		return
 	}
+	if path := os.Getenv(tun.CheckEnv); path != "" {
+		os.Exit(tun.RunCheck(path))
+	}
 	if sock := os.Getenv(tun.FilterEnv); sock != "" {
 		os.Exit(tun.RunFilter(sock))
 	}
@@ -108,6 +111,7 @@ func main() {
 		if mgr != nil {
 			mgr.ReapOrphan()
 		}
+		k.startFeatures()
 		k.startCore()
 		k.checkLegacyTun()
 		k.reportLoadErrors()
