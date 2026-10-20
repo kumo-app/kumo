@@ -5,3 +5,7 @@ mygo_windows_*.syso
 
 # Cores fetched by scripts/fetch-core
 /resources/*-*/core/
+
+# Stray local go build output
+/kumo
+/kumo.exe
