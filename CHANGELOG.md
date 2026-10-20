@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.5.1
+
+- Faster and lighter: Kumo now redraws only what you can see. With a busy connection, the Logs page uses about a tenth of the CPU it did (new lines arrive in small batches, up to four times a second), and the Nodes page stays smooth with well over a thousand nodes because only the visible cards are drawn. Pages that don't show live traffic no longer redraw every second, and memory use is lower (about 95 MB instead of 165 MB in our heavy test).
+- The core's log file is capped: it rolls over at 5 MB and keeps one older file, about 10 MB at most, instead of growing without limit.
+- Settings and statistics files now carry a version. Older settings are upgraded automatically; a file written by a newer Kumo is left untouched instead of being overwritten.
+- The menu bar speed is cheaper to draw and stays current while the window is hidden.
+- System proxy check: Kumo now verifies that the system proxy is really in effect, after you turn it on, every so often, and when the network changes or the computer wakes. If another app or the system changed it, the system-proxy tile and the tray turn amber, say what happened (another address, a PAC script, auto-discovery, only some protocols), and offer Re-apply.
+- Turning the system proxy off no longer restores a saved setting that points at a local proxy which isn't running anymore; Kumo turns the proxy off instead.
+- One-click diagnostics (Home, and Run diagnostics in the tray): eleven checks in order, each ✓, ⚠ or ✗ with what it means: core, configuration, subscription, system proxy, Enhanced Mode, DNS, direct internet, nodes, internet through Kumo, captive portal, ports. Where Kumo can fix something there is a button (re-apply the proxy, turn it on, restart the core, update the subscription, use the fastest node), and Copy results gives you a text report to share.
+- Connections, in advanced mode: “Why this route” on any connection shows the rule that matched, the group and the node in plain words, and “Test a host” makes a quick request to an address through Kumo and shows the rule and node it took, then closes the connection.
+- Chinese text uses the character forms of your system: Taiwan, Hong Kong or Simplified forms, following your system's preferred languages and region (Taiwan forms when your system has no Chinese preference). Kumo's built-in dialogs and menus follow the same language. English is unchanged.
+- Built on MyGo 0.5.5, with its fixes for text input, global shortcuts and languages.
+
 ## 0.5.0
 
 - Statistics page (sidebar, also in simple mode): today, this month and the range's traffic, a daily (or monthly) chart, top apps, nodes and proxy groups; 7/30/90 days or 12 months; Clear. Counted from the core's totals and live connections, aggregates only, in one small gzip JSON file (`traffic-stats.json.gz`, atomic writes), 90 days daily and 24 months monthly, top 20 per day and 100 per month with the rest under Other. A simulated heavy year (500 apps, 300 nodes, 40 groups every day) is about 14 KB.
