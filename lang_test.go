@@ -102,8 +102,64 @@ func TestChooseLanguage(t *testing.T) {
 			t.Errorf("chooseLanguage(%q, %q) = %q, want %q", c.stored, c.preferred, got, c.want)
 		}
 	}
-	if mygoLocale("zh") != "zh-Hant" || mygoLocale("en") != "en" {
-		t.Fatal("MyGo's strings must follow Kumo's language")
+}
+
+// The glyph forms (and MyGo's own strings) of Chinese follow the system's
+// first Chinese language; English stays English.
+func TestMygoLocale(t *testing.T) {
+	cases := []struct {
+		ui        string
+		preferred []string
+		region    string
+		want      string
+	}{
+		{"en", []string{"zh-Hant-TW"}, "", "en"},
+		{"en", nil, "", "en"},
+		{"zh", []string{"zh-Hant-TW"}, "", "zh-Hant-TW"},
+		{"zh", []string{"zh-TW"}, "", "zh-Hant-TW"},
+		{"zh", []string{"zh_TW.UTF-8"}, "", "zh-Hant-TW"},
+		{"zh", []string{"zh-Hant"}, "", "zh-Hant-TW"},
+		{"zh", []string{"zh-HK"}, "", "zh-Hant-HK"},
+		{"zh", []string{"zh_HK.UTF-8"}, "", "zh-Hant-HK"},
+		{"zh", []string{"zh-Hant-HK"}, "", "zh-Hant-HK"},
+		{"zh", []string{"zh-MO"}, "", "zh-Hant-HK"},
+		{"zh", []string{"zh-Hant-MO"}, "", "zh-Hant-HK"},
+		{"zh", []string{"yue-Hant-HK"}, "", "zh-Hant-HK"},
+		{"zh", []string{"zh-CN"}, "", "zh-Hans-CN"},
+		{"zh", []string{"zh_CN.GB18030"}, "", "zh-Hans-CN"},
+		{"zh", []string{"zh-Hans"}, "", "zh-Hans-CN"},
+		{"zh", []string{"zh-Hans-CN"}, "", "zh-Hans-CN"},
+		{"zh", []string{"zh-SG"}, "", "zh-Hans-CN"},
+		{"zh", []string{"zh-Hans-HK"}, "", "zh-Hans-CN"}, // the script decides
+		{"zh", []string{"zh"}, "", "zh-Hant-TW"},
+		// The first Chinese language decides, whatever comes before it.
+		{"zh", []string{"en-US", "ja-JP", "zh-HK", "zh-CN"}, "", "zh-Hant-HK"},
+		{"zh", []string{"zh-CN", "zh-TW"}, "", "zh-Hans-CN"},
+		// No Chinese on the system: the forms of Kumo's Traditional Chinese.
+		{"zh", []string{"en-US", "de-DE"}, "", "zh-Hant-TW"},
+		{"zh", nil, "", "zh-Hant-TW"},
+		{"zh", []string{"zhx-TW", "en"}, "", "zh-Hant-TW"},
+		// A Chinese language without a region takes the formats' region.
+		{"zh", []string{"zh-Hant", "en"}, "zh-HK", "zh-Hant-HK"},
+		{"zh", []string{"zh-Hant"}, "en-MO", "zh-Hant-HK"},
+		{"zh", []string{"zh"}, "zh-CN", "zh-Hans-CN"},
+		{"zh", []string{"zh"}, "en-SG", "zh-Hans-CN"},
+		{"zh", []string{"zh-Hant"}, "zh-CN", "zh-Hant-TW"}, // the script decides
+		{"zh", []string{"zh-Hans"}, "zh-HK", "zh-Hans-CN"},
+		{"zh", []string{"zh-TW"}, "zh-HK", "zh-Hant-TW"}, // its own region decides
+		{"zh", []string{"en-US"}, "zh-HK", "zh-Hant-TW"}, // a region alone is no Chinese preference
+		{"en", []string{"zh-HK"}, "zh-HK", "en"},
+	}
+	for _, c := range cases {
+		if got := mygoLocale(c.ui, c.preferred, c.region); got != c.want {
+			t.Errorf("mygoLocale(%q, %q, %q) = %q, want %q", c.ui, c.preferred, c.region, got, c.want)
+		}
+	}
+	// Every locale picked is one Kumo declares to MyGo.
+	for _, c := range cases {
+		if got := mygoLocale(c.ui, c.preferred, c.region); !slices.Contains(mygoLanguages, got) {
+			t.Errorf("%q is not declared in mygoLanguages", got)
+		}
 	}
 }
 

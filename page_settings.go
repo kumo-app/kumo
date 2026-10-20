@@ -97,7 +97,7 @@ func (k *Kumo) settingsPage(c *ui.Context, s skin) {
 				k.prefs.App.Language = ids[max(slices.Index(names, cur), 0)]
 				_ = k.prefs.save()
 				lang = k.prefs.App.Language
-				mygo.App.SetLocale(mygoLocale(lang))
+				mygo.App.SetLocale(mygoLocale(lang, mygo.App.PreferredLanguages(), mygo.App.Region().Locale))
 				k.refreshMenus()
 			}
 		})
