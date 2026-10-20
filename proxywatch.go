@@ -162,4 +162,3 @@ func (k *Kumo) reapplyProxy() {
 		})
 	}()
 }
-

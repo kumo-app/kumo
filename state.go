@@ -88,7 +88,7 @@ type Kumo struct {
 	detailOpen bool
 	statsRange int
 	statsAsk   bool
-	statsNewer bool // the statistics are a newer Kumo's and are not saved
+	statsNewer bool   // the statistics are a newer Kumo's and are not saved
 	hotkeyRec  string // the action whose shortcut is being recorded
 	hotkeyErr  map[string]string
 
@@ -117,7 +117,7 @@ type Kumo struct {
 	routeOpen bool
 	routeConn string // the connection shown, "" for the test alone
 	routeTest routeTest
-	notice   string
+	notice    string
 
 	// Page state.
 	sub       subForm

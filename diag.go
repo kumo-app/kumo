@@ -473,4 +473,3 @@ func (k *Kumo) diagText() string {
 	}
 	return b.String()
 }
-
