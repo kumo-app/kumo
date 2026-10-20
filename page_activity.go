@@ -96,6 +96,9 @@ func (k *Kumo) connsPage(c *ui.Context, s skin) {
 		ui.Text(c, itoa(len(k.conns.Connections))).FontSize(13).TextColor(s.muted)
 		ui.Spacer(c)
 		searchBox(c, &k.connQuery)
+		if k.prefs.UI.AdvancedMode && ui.Button(c, tr("Test a host")).Tooltip(tr("See which rule and node a host would go through")).Clicked() {
+			k.openRoute("")
+		}
 		if ui.Button(c, tr("Close all")).Clicked() {
 			k.closeConnection("")
 		}
@@ -103,6 +106,7 @@ func (k *Kumo) connsPage(c *ui.Context, s skin) {
 	if k.waiting(c, s) {
 		return
 	}
+	k.routeSheet(c, s)
 	var shown []clash.Connection
 	for _, cn := range k.conns.Connections {
 		if matches(k.connQuery, cn.Target(), cn.Rule, cn.Payload, strings.Join(cn.Chains, " "), cn.Metadata.Process, cn.Metadata.SourceIP) {
@@ -114,10 +118,17 @@ func (k *Kumo) connsPage(c *ui.Context, s skin) {
 		return
 	}
 	slices.SortStableFunc(shown, func(a, b clash.Connection) int { return b.Start.Compare(a.Start) })
-	cols := []column{{tr("Host"), 0}, {tr("Network"), 90}, {tr("Chain"), 160}, {tr("Rule"), 170}, {"↑", 76}, {"↓", 76}, {tr("Time"), 50}, {"", 40}}
+	advanced := k.prefs.UI.AdvancedMode
+	last := float32(40)
+	if advanced {
+		last = 72 // room for "Why this route"
+	}
+	cols := []column{{tr("Host"), 0}, {tr("Network"), 90}, {tr("Chain"), 160}, {tr("Rule"), 170}, {"↑", 76}, {"↓", 76}, {tr("Time"), 50}, {"", last}}
 	tableHead(c, s, cols)
 	now := time.Now()
-	k.connList.Key = func(i int) any { return shown[i].ID }
+	// Sorted newest first: keep the offset as connections open and close,
+	// rather than follow the row at the top.
+	k.connList.Key, k.connList.KeepOffset = func(i int) any { return shown[i].ID }, true
 	ui.List(c.Key("conns"), &k.connList, len(shown)).Grow(1).Label(tr("Connections")).Rows(func(row ui.ListRow) {
 		rc, cn := row.Context, shown[row.Index]
 		chain := slices.Clone(cn.Chains)
@@ -138,7 +149,10 @@ func (k *Kumo) connsPage(c *ui.Context, s skin) {
 				}
 				sized(cols[i], e)
 			}
-			ui.Row(rc).Width(40).Shrink(0).Justify(ui.Center).Children(func() {
+			ui.Row(rc).Width(last).Shrink(0).Justify(ui.Center).Children(func() {
+				if advanced && roundButton(rc.Key("why"), s, "route", tr("Why this route")).Clicked() {
+					k.openRoute(cn.ID)
+				}
 				if roundButton(rc, s, "x", tr("Close")).Clicked() {
 					k.closeConnection(cn.ID)
 				}
@@ -183,7 +197,7 @@ func (k *Kumo) logsPage(c *ui.Context, s skin) {
 	if k.waiting(c, s) {
 		return
 	}
-	var shown []clash.Log
+	var shown []logLine
 	for _, l := range slices.Backward(k.logs) {
 		if matches(k.logQuery, l.Payload, l.Type) {
 			shown = append(shown, l)
@@ -193,6 +207,9 @@ func (k *Kumo) logsPage(c *ui.Context, s skin) {
 		blank(c, s, "scroll-text", tr("No logs yet"), tr("The core's log streams here at the level chosen."))
 		return
 	}
+	// Newest first: the list keeps its offset as lines come in on top, so
+	// its top shows the newest, and a row's selection follows its line.
+	k.logList.Key, k.logList.KeepOffset = func(i int) any { return shown[i].seq }, true
 	ui.List(c.Key("logs"), &k.logList, len(shown)).Grow(1).Label(tr("Logs")).Rows(func(row ui.ListRow) {
 		rc, l := row.Context, shown[row.Index]
 		r := ui.Row(rc).Padding(6, 24).Gap(10).AlignItems(ui.Start).FontSize(12.5)

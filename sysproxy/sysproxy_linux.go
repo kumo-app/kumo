@@ -2,6 +2,7 @@ package sysproxy
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -80,4 +81,20 @@ func clearOurs(host string, port int) error {
 	}
 	_, err = gsettings("set", "org.gnome.system.proxy", "mode", "none")
 	return err
+}
+
+// readEffective reads GNOME's settings, which GNOME's apps and browsers
+// follow, else the proxy variables Kumo was started with.
+func readEffective() (Effective, error) {
+	if _, err := gsettings("get", "org.gnome.system.proxy", "mode"); err == nil {
+		return parseGnome(func(schema, key string) string {
+			v, _ := gsettings("get", schema, key)
+			return v
+		}), nil
+	}
+	e := parseEnv(os.Getenv)
+	if e.HTTP == "" && e.HTTPS == "" {
+		return e, ErrUnknown
+	}
+	return e, nil
 }

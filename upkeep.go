@@ -97,6 +97,12 @@ func (k *Kumo) checkLegacyTun() {
 // reportLoadErrors tells the user when saved settings or subscriptions
 // could not be read, and where the unreadable file was kept.
 func (k *Kumo) reportLoadErrors() {
+	if k.prefs.newer {
+		k.say(tr("Your settings were saved by a newer version of Kumo. They are left untouched, and changes made now are not saved."))
+	}
+	if k.stats != nil && k.statsNewer {
+		k.say(tr("Traffic statistics were saved by a newer version of Kumo. They are left untouched; this session's traffic is not saved."))
+	}
 	if k.prefs.loadErr != "" {
 		k.say(tr("Your settings could not be read and were reset; the old file was kept: ") + k.prefs.loadErr)
 	}

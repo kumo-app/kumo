@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"kumo/clash"
+	"kumo/sysproxy"
 	"kumo/tun"
 )
 
@@ -90,7 +91,8 @@ func TestQuickMenuOffline(t *testing.T) {
 	k := menuKumo()
 	k.online = false
 	for _, e := range k.quickMenu(true) {
-		if e.do != nil && !e.disabled {
+		// The diagnostics say why the core is offline.
+		if e.do != nil && !e.disabled && e.label != "Run diagnostics" {
 			t.Fatalf("%q is enabled while the core is offline", e.label)
 		}
 	}
@@ -117,5 +119,22 @@ func TestExplainTunError(t *testing.T) {
 	}
 	if !strings.Contains(explainTunError(errors.New("boom")), "boom") {
 		t.Fatal("other")
+	}
+}
+
+func TestQuickMenuStaleProxy(t *testing.T) {
+	lang = "en"
+	k := menuKumo()
+	k.proxyOn = true
+	if _, ok := find(k.quickMenu(false), "Re-apply system proxy"); ok {
+		t.Fatal("re-apply shown while the proxy is in force")
+	}
+	k.proxyEff = proxyState{known: true, cause: sysproxy.Elsewhere, detail: "127.0.0.1:7897"}
+	items := k.quickMenu(false)
+	if !strings.Contains(items[0].label, "not in effect") {
+		t.Fatalf("status %q", items[0].label)
+	}
+	if e, ok := find(items, "Re-apply system proxy"); !ok || e.disabled {
+		t.Fatal("no re-apply in the tray")
 	}
 }

@@ -20,19 +20,20 @@ func sparkline(p *ui.Painter, r ui.Rect, samples series, stroke, fill ui.Color) 
 		return r.X + r.W*float32(i)/float32(historyLen-1),
 			r.Y + r.H - floor - (r.H-floor-2)*float32(v)/float32(peak)
 	}
-	var area, line ui.Path
+	var area ui.Path
+	var line [historyLen][2]float32
 	area.MoveTo(r.X, r.Y+r.H)
-	for i := 0; i < historyLen; i++ {
+	for i := range historyLen {
 		x, y := point(i)
 		area.LineTo(x, y)
-		if i == 0 {
-			line.MoveTo(x, y)
-		} else {
-			line.LineTo(x, y)
-		}
+		line[i] = [2]float32{x, y}
 	}
 	area.LineTo(r.X+r.W, r.Y+r.H)
 	area.Close()
 	p.FillPath(&area, fill)
-	p.StrokePath(&line, 2, stroke)
+	// A live line: on a GPU StrokePolyline draws its segments directly
+	// rather than rasterizing a mask of the whole path every second. The
+	// chart has one point per second, fewer than its pixels, so it needs
+	// no bucketing (chart.MinMax).
+	p.StrokePolyline(line[:], 2, stroke)
 }

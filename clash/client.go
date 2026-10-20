@@ -194,6 +194,29 @@ func (c *Client) TestDelay(ctx context.Context, name, testURL string, timeout ti
 	return out.Delay, err
 }
 
+// DNSQuery resolves name through the core's own DNS, as its rules and
+// proxies do, returning the answers' data (addresses for A and AAAA).
+func (c *Client) DNSQuery(ctx context.Context, name, qtype string) ([]string, error) {
+	q := url.Values{"name": {name}, "type": {qtype}}
+	var out struct {
+		Status int
+		Answer []struct {
+			Data string `json:"data"`
+		}
+	}
+	if err := c.do(ctx, "GET", "/dns/query?"+q.Encode(), nil, &out); err != nil {
+		return nil, err
+	}
+	var data []string
+	for _, a := range out.Answer {
+		data = append(data, a.Data)
+	}
+	if out.Status != 0 && len(data) == 0 {
+		return nil, fmt.Errorf("DNS status %d", out.Status)
+	}
+	return data, nil
+}
+
 // Rule is a rule of the running configuration.
 type Rule struct {
 	Type    string `json:"type"`
@@ -217,13 +240,14 @@ type Connection struct {
 	Rule     string    `json:"rule"`
 	Payload  string    `json:"rulePayload"`
 	Metadata struct {
-		Network  string `json:"network"`
-		Type     string `json:"type"`
-		SourceIP string `json:"sourceIP"`
-		DestIP   string `json:"destinationIP"`
-		DestPort string `json:"destinationPort"`
-		Host     string `json:"host"`
-		Process  string `json:"process"`
+		Network    string `json:"network"`
+		Type       string `json:"type"`
+		SourceIP   string `json:"sourceIP"`
+		SourcePort string `json:"sourcePort"`
+		DestIP     string `json:"destinationIP"`
+		DestPort   string `json:"destinationPort"`
+		Host       string `json:"host"`
+		Process    string `json:"process"`
 	} `json:"metadata"`
 }
 

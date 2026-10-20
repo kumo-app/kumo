@@ -52,19 +52,26 @@ func (k *Kumo) quickMenu(dock bool) []entry {
 	switch {
 	case !k.online:
 		status = tr("Core offline")
+	case k.proxyOn && k.proxyEff.stale():
+		status = tr("System proxy not in effect")
 	case k.proxyOn:
 		status = tr("Connected") + " · " + k.activeNode()
 	}
 	off := !k.online
 	items := []entry{
 		{label: "Kumo — " + status, disabled: true},
-		separator,
+	}
+	if k.proxyOn && k.proxyEff.stale() {
+		items = append(items, entry{label: tr("Re-apply system proxy"), disabled: off || k.proxyBusy, do: k.reapplyProxy})
+	}
+	items = append(items, entry{label: tr("Run diagnostics"), do: k.openDiagnostics}, separator)
+	items = append(items, []entry{
 		{label: tr("System proxy"), kind: check, checked: k.proxyOn, disabled: off || k.proxyBusy,
 			do: func() { k.setSystemProxy(!k.proxyOn) }},
 		{label: tr("Enhanced Mode (TUN)"), kind: check, checked: k.tunOn(), disabled: off || k.tunBusy,
 			do: func() { k.setTun(!k.tunOn()) }},
 		separator,
-	}
+	}...)
 	for _, id := range modeIDs {
 		items = append(items, entry{label: modeLabel(id), kind: radio, checked: k.cfg.Mode == id, disabled: off,
 			do: func() { k.setMode(id) }})

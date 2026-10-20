@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo"
+	_ "github.com/egoist/mygo/locales/zh-Hant" // MyGo's own strings in Kumo's Chinese
 	"github.com/egoist/mygo/ui"
 
 	"kumo/core"
@@ -53,6 +54,7 @@ func main() {
 	mygo.App.SetPath(mygo.PathUserData, dataDir)
 	prefs := loadPrefs(filepath.Join(dataDir, "settings.json"))
 	lang = prefs.App.Language
+	mygo.App.SetLanguages("en", "zh-Hant")
 	applyTheme(prefs)
 	installAppMenu()
 
@@ -65,11 +67,12 @@ func main() {
 	mygo.App.WhenReady(func() {
 		// The first launch follows the system language, kept from then on
 		// so that the interface and Settings agree.
-		if l := chooseLanguage(prefs.App.Language, mygo.App.Locale()); l != prefs.App.Language {
+		if l := chooseLanguage(prefs.App.Language, mygo.App.PreferredLanguages()); l != prefs.App.Language {
 			prefs.App.Language = l
 			_ = prefs.save()
 		}
 		lang = prefs.App.Language
+		mygo.App.SetLocale(mygoLocale(lang))
 		tun.Prompt = tr("Kumo is installing its Enhanced Mode helper and a root-owned copy of the mihomo core.")
 		var mgr *core.Manager
 		bundled := ""

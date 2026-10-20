@@ -37,6 +37,8 @@ func modeHint(mode string) string {
 func (k *Kumo) homePage(c *ui.Context, s skin) {
 	k.headRow(c, 84, 10).AlignItems(ui.Center).DragWindow().Children(func() {
 		ui.Text(c, tr("Home")).FontSize(24).Bold().LetterSpacing(-0.4).SingleLine()
+		ui.Spacer(c)
+		k.diagButton(c, s)
 	})
 	cols := 4
 	if w, _ := c.Size(); w-k.sideShown() < 640 {
@@ -120,7 +122,11 @@ func (k *Kumo) proxyTile(c *ui.Context, s skin) {
 			}
 		})
 		state, color := tr("Not connected"), s.muted
-		if k.proxyOn {
+		stale := k.proxyOn && k.proxyEff.stale()
+		switch {
+		case stale:
+			state, color = tr("Not in effect"), slow
+		case k.proxyOn:
 			state, color = tr("Connected"), s.good
 		}
 		ui.Row(c).Gap(10).AlignItems(ui.Center).Margin(8, 0, 0, 0).Children(func() {
@@ -130,6 +136,15 @@ func (k *Kumo) proxyTile(c *ui.Context, s skin) {
 		ui.Spacer(c)
 		if k.proxyErr != "" {
 			ui.Text(c, k.proxyErr).FontSize(12).TextColor(dead).MaxLines(2).Selectable()
+			return
+		}
+		if stale {
+			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+				ui.Text(c, proxyCause(k.proxyEff)).FontSize(12).TextColor(slow).MaxLines(2).Selectable().Grow(1).Basis(0).MinWidth(0)
+				if ui.Button(c, tr("Re-apply")).Tooltip(tr("Point the system proxy at Kumo again")).Clicked() {
+					k.reapplyProxy()
+				}
+			})
 			return
 		}
 		engine := "mihomo"

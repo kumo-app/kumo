@@ -73,7 +73,8 @@ type Kumo struct {
 	upHist  series
 	dnHist  series
 	memHist series
-	logs    []clash.Log
+	logs    []logLine
+	logSeq  int64
 	testing map[string]bool
 
 	// Statistics, the node monitor and node tests (features.go).
@@ -87,6 +88,7 @@ type Kumo struct {
 	detailOpen bool
 	statsRange int
 	statsAsk   bool
+	statsNewer bool // the statistics are a newer Kumo's and are not saved
 	hotkeyRec  string // the action whose shortcut is being recorded
 	hotkeyErr  map[string]string
 
@@ -101,9 +103,20 @@ type Kumo struct {
 	proxyErr  string
 	proxyPort int
 	autoDone  bool
+	proxyEff  proxyState // whether the system proxy is still Kumo's (proxywatch.go)
+	// proxyWant is the port the system proxy should point at, 0 when off,
+	// for the watcher's goroutine.
+	proxyWant     atomic.Int64
+	proxyChecking atomic.Bool
+	proxyTick     atomic.Int64
 
 	quitting bool
 	upd      appUpdate // the in-app updater
+	diag     diagState // the diagnostics sheet (diag.go)
+	// The route sheet of the Connections page (route.go).
+	routeOpen bool
+	routeConn string // the connection shown, "" for the test alone
+	routeTest routeTest
 	notice   string
 
 	// Page state.
@@ -286,7 +299,7 @@ func (k *Kumo) streams(ctx context.Context, cli *clash.Client, gen int) {
 				if k.logPaused {
 					return false
 				}
-				k.logs = appendLogs(k.logs, lines, maxLogs)
+				k.logs, k.logSeq = appendLogs(k.logs, lines, maxLogs, k.logSeq)
 				return k.shown == "/logs"
 			})
 		})
@@ -360,13 +373,24 @@ func (b *logBatch) flush(ctx context.Context, every time.Duration, fn func([]cla
 	}
 }
 
-// appendLogs adds lines to logs, keeping the last limit.
-func appendLogs(logs, lines []clash.Log, limit int) []clash.Log {
-	logs = append(logs, lines...)
+// logLine is a line of the log with its number, which keys its row so a
+// selection in it stays with it as lines arrive.
+type logLine struct {
+	seq int64
+	clash.Log
+}
+
+// appendLogs adds lines to logs, numbered from seq on, keeping the last
+// limit; it returns the next number.
+func appendLogs(logs []logLine, lines []clash.Log, limit int, seq int64) ([]logLine, int64) {
+	for _, l := range lines {
+		seq++
+		logs = append(logs, logLine{seq, l})
+	}
 	if len(logs) > limit {
 		logs = append(logs[:0:0], logs[len(logs)-limit:]...)
 	}
-	return logs
+	return logs, seq
 }
 
 func (k *Kumo) logLevelOr() string {

@@ -81,17 +81,29 @@ func TestLanguageFor(t *testing.T) {
 }
 
 func TestChooseLanguage(t *testing.T) {
-	cases := []struct{ stored, locale, want string }{
-		{"", "en-US", "en"},        // first launch on an English Mac
-		{"", "zh-Hant-TW", "zh"},   // first launch on a Chinese Mac
-		{"system", "en-US", "en"},  // a value older versions wrote
-		{"en", "zh-Hant-TW", "en"}, // the user's choice wins
-		{"zh", "en-US", "zh"},
+	cases := []struct {
+		stored    string
+		preferred []string
+		want      string
+	}{
+		{"", []string{"en-US"}, "en"},                // first launch on an English Mac
+		{"", []string{"zh-Hant-TW", "en-US"}, "zh"},  // first launch on a Chinese Mac
+		{"", []string{"zh-Hans-CN"}, "zh"},           // Simplified readers get Kumo's Chinese too
+		{"", []string{"ja-JP", "zh-Hant-TW"}, "zh"},  // the first Kumo speaks decides
+		{"", []string{"fr-FR", "en-GB", "zh"}, "en"}, //
+		{"", []string{"de-DE"}, "en"},
+		{"", nil, "en"},
+		{"system", []string{"en-US"}, "en"},  // a value older versions wrote
+		{"en", []string{"zh-Hant-TW"}, "en"}, // the user's choice wins
+		{"zh", []string{"en-US"}, "zh"},
 	}
 	for _, c := range cases {
-		if got := chooseLanguage(c.stored, c.locale); got != c.want {
-			t.Errorf("chooseLanguage(%q, %q) = %q, want %q", c.stored, c.locale, got, c.want)
+		if got := chooseLanguage(c.stored, c.preferred); got != c.want {
+			t.Errorf("chooseLanguage(%q, %q) = %q, want %q", c.stored, c.preferred, got, c.want)
 		}
+	}
+	if mygoLocale("zh") != "zh-Hant" || mygoLocale("en") != "en" {
+		t.Fatal("MyGo's strings must follow Kumo's language")
 	}
 }
 

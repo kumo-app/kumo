@@ -75,6 +75,7 @@ func (k *Kumo) view(c *ui.Context) {
 	})
 	k.tools(c, s)
 	k.updateDialog(c, s)
+	k.diagSheet(c, s)
 	k.syncMenus()
 }
 
@@ -147,6 +148,8 @@ func (k *Kumo) navItem(c *ui.Context, s skin, p page, current string, badge int)
 func (k *Kumo) statusLine(c *ui.Context, s skin) {
 	color, text := ui.Hex("#ef4444"), tr("Core not running")
 	switch {
+	case k.online && k.proxyOn && k.proxyEff.stale():
+		color, text = slow, tr("System proxy not in effect")
 	case k.online && k.proxyOn:
 		color, text = s.good, tr("Connected")
 	case k.online:

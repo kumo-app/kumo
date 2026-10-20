@@ -1,6 +1,8 @@
 package main
 
 import (
+	"net"
+	"strconv"
 	"context"
 	"errors"
 	"fmt"
@@ -231,10 +233,24 @@ func proxyOff(backup string, port int) error {
 	if !saved {
 		return sysproxy.ClearOurs("127.0.0.1", port)
 	}
+	// A backup taken while another client (or a Kumo that crashed) had
+	// pointed the system at this computer is put back as off where nothing
+	// listens there any more: such a proxy would block every app.
+	st, _ = st.OffWhereDead(portAlive)
 	if err := sysproxy.Restore(st); err != nil {
 		return err
 	}
 	return os.Remove(backup)
+}
+
+// portAlive reports whether something listens on port of this computer.
+func portAlive(port int) bool {
+	c, err := net.DialTimeout("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(port)), 400*time.Millisecond)
+	if err != nil {
+		return false
+	}
+	c.Close()
+	return true
 }
 
 // repairProxy restores settings a crashed Kumo left behind.
@@ -268,9 +284,11 @@ func (k *Kumo) setSystemProxy(on bool) {
 			if err != nil {
 				k.proxyErr = explainProxyError(err, port)
 				k.proxyOn = false
+				k.proxyApplied(false, 0)
 				k.say(k.proxyErr)
 			} else {
 				k.proxyErr, k.proxyOn, k.proxyPort = "", on, port
+				k.proxyApplied(on, port)
 				if on {
 					k.say(tr("Connected — apps now go through Kumo"))
 				} else {

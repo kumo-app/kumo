@@ -30,10 +30,14 @@ var monEvery, monTimeout atomic.Int64
 // on the main thread, before the core starts.
 func (k *Kumo) startFeatures() {
 	st, err := stats.Open(filepath.Join(k.dataDir, "traffic-stats.json.gz"))
-	if err != nil {
+	switch {
+	case errors.Is(err, stats.ErrNewer):
+		k.statsNewer = true // said by reportLoadErrors
+	case err != nil:
 		k.say(tr("The traffic statistics could not be read and start afresh: ") + err.Error())
 	}
 	k.stats = st
+	go k.watchProxy()
 	k.mon = monitor.New()
 	k.syncMonitorPrefs()
 	go func() {

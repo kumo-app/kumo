@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,7 +13,10 @@ import (
 // Prefs are Kumo's preferences, stored as JSON in the data directory.
 // The core's own options live in the core and change over its API.
 type Prefs struct {
-	Core struct {
+	// Version is the format of the file (prefsVersion); 0 is a file from
+	// before it had one.
+	Version int `json:"version"`
+	Core    struct {
 		// External connects to a controller Kumo does not run.
 		External bool `json:"external"`
 		// Port and Secret are the bundled core's controller.
@@ -68,6 +72,48 @@ type Prefs struct {
 	path      string
 	envSecret string
 	loadErr   string // why the saved settings could not be read
+	// newer is set for a file a newer Kumo wrote: Kumo reads what it
+	// knows of it and never overwrites it, so the newer Kumo finds its
+	// settings intact.
+	newer bool
+}
+
+// prefsVersion is the format of settings.json this Kumo writes.
+const prefsVersion = 1
+
+// errNewerPrefs is save's error while the settings are a newer Kumo's.
+var errNewerPrefs = errors.New("settings.json was written by a newer version of Kumo and is left as it is")
+
+// migrations bring a file of version i up to i+1, in order.
+var migrations = []func(p *Prefs){
+	// 0 → 1: the file gains its version. Before 0.5.1 "system" (or
+	// nothing) meant following the system language, which the first
+	// launch now settles (chooseLanguage), and an unset update channel
+	// meant the stable one.
+	func(p *Prefs) {
+		if p.App.Language == "system" {
+			p.App.Language = ""
+		}
+		if p.App.UpdateChannel == "" {
+			p.App.UpdateChannel = "stable"
+		}
+	},
+}
+
+// migrate brings p up to prefsVersion, reporting whether it changed.
+func (p *Prefs) migrate() bool {
+	if p.Version > prefsVersion {
+		p.newer = true
+		return false
+	}
+	if p.Version == prefsVersion {
+		return false
+	}
+	for v := p.Version; v < prefsVersion; v++ {
+		migrations[v](p)
+	}
+	p.Version = prefsVersion
+	return true
 }
 
 // loadPrefs reads path, filling in defaults for what it lacks.
@@ -86,7 +132,12 @@ func loadPrefs(path string) *Prefs {
 		if err := json.Unmarshal(data, p); err != nil {
 			kept, _ := core.KeepCorrupt(path)
 			p.loadErr = fmt.Sprintf("%v (%s)", err, kept)
+			p.Version = prefsVersion
+		} else if p.migrate() {
+			_ = p.save()
 		}
+	} else {
+		p.Version = prefsVersion // a new file
 	}
 	// A secret from the environment is used, never saved.
 	p.envSecret = os.Getenv("KUMO_SECRET")
@@ -95,6 +146,9 @@ func loadPrefs(path string) *Prefs {
 
 // save writes the preferences in one step.
 func (p *Prefs) save() error {
+	if p.newer {
+		return errNewerPrefs
+	}
 	if err := os.MkdirAll(filepath.Dir(p.path), 0o755); err != nil {
 		return err
 	}

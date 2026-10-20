@@ -152,3 +152,20 @@ func refresh() {
 	set.Call(0, settingsChanged, 0, 0)
 	set.Call(0, refreshOption, 0, 0)
 }
+
+func readEffective() (Effective, error) {
+	k, err := open(internetSettings, registry.QUERY_VALUE)
+	if err != nil {
+		return Effective{}, err
+	}
+	defer k.Close()
+	enable, _, _ := k.GetIntegerValue("ProxyEnable")
+	server, _, _ := k.GetStringValue("ProxyServer")
+	autoURL, _, _ := k.GetStringValue("AutoConfigURL")
+	var blob []byte
+	if c, err := open(connections, registry.QUERY_VALUE); err == nil {
+		blob, _, _ = c.GetBinaryValue(defaultConnection)
+		c.Close()
+	}
+	return parseWinINet(enable == 1, server, autoURL, blob), nil
+}

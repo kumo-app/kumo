@@ -37,10 +37,33 @@ func languageFor(locale string) string {
 
 // chooseLanguage keeps a stored language Kumo supports; otherwise (first
 // launch, or a value from an older version such as "" or "system") it
-// follows the system locale.
-func chooseLanguage(stored, locale string) string {
+// follows the user's preferred languages, most preferred first: the first
+// that is Chinese or English decides, and English when none is.
+//
+// MyGo 0.5's App.Locale picks among the languages an app declares, so it
+// cannot tell a reader of zh-Hans from one of English when Kumo declares
+// zh-Hant; the preferred languages can.
+func chooseLanguage(stored string, preferred []string) string {
 	if slices.Contains(languages, stored) {
 		return stored
 	}
-	return languageFor(locale)
+	for _, p := range preferred {
+		l := strings.ToLower(strings.TrimSpace(p))
+		if l == "en" || strings.HasPrefix(l, "en-") || strings.HasPrefix(l, "en_") {
+			return "en"
+		}
+		if languageFor(p) == "zh" {
+			return "zh"
+		}
+	}
+	return "en"
+}
+
+// mygoLocale is the language MyGo's own strings (its menus, dialogs and
+// controls) are said in, to match Kumo's.
+func mygoLocale(l string) string {
+	if l == "zh" {
+		return "zh-Hant"
+	}
+	return "en"
 }

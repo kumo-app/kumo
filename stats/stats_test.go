@@ -1,9 +1,13 @@
 package stats
 
 import (
+	"bytes"
+	"compress/gzip"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -149,5 +153,45 @@ func TestHeavyYearSize(t *testing.T) {
 		if len(b.Apps) > MaxDayKeys || len(b.Nodes) > MaxDayKeys {
 			t.Fatal("day not capped")
 		}
+	}
+}
+
+func TestNewerRecordLeftAlone(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "s.json.gz")
+	s, _ := Open(path)
+	s.Record(clash.Connections{UploadTotal: 10, DownloadTotal: 20})
+	s.Record(clash.Connections{UploadTotal: 30, DownloadTotal: 50})
+	if err := s.Save(); err != nil {
+		t.Fatal(err)
+	}
+	// A newer Kumo's record: version 2.
+	raw, _ := os.ReadFile(path)
+	data, _ := gunzip(raw)
+	data = []byte(strings.Replace(string(data), `"v":1`, `"v":2`, 1))
+	var buf bytes.Buffer
+	zw := gzip.NewWriter(&buf)
+	zw.Write(data)
+	zw.Close()
+	os.WriteFile(path, buf.Bytes(), 0o600)
+	before, _ := os.ReadFile(path)
+
+	s2, err := Open(path)
+	if !errors.Is(err, ErrNewer) {
+		t.Fatalf("err = %v", err)
+	}
+	s2.Record(clash.Connections{UploadTotal: 100, DownloadTotal: 100})
+	s2.Record(clash.Connections{UploadTotal: 200, DownloadTotal: 200})
+	if err := s2.Save(); err != nil {
+		t.Fatal(err)
+	}
+	if err := s2.Clear(); err != nil {
+		t.Fatal(err)
+	}
+	after, _ := os.ReadFile(path)
+	if !bytes.Equal(before, after) {
+		t.Fatal("a newer record was overwritten")
+	}
+	if _, err := os.Stat(path + ".corrupt"); err == nil {
+		t.Fatal("a newer record is not corrupt")
 	}
 }

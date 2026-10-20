@@ -20,3 +20,11 @@ func snapshot() (State, error)              { return mac.snapshot() }
 func restore(s State) error                 { return mac.restore(s) }
 func set(host string, port int) error       { return mac.set(host, port) }
 func clearOurs(host string, port int) error { return mac.clearOurs(host, port) }
+
+func readEffective() (Effective, error) {
+	out, err := exec.Command("scutil", "--proxy").Output()
+	if err != nil {
+		return Effective{}, fmt.Errorf("scutil --proxy: %w", err)
+	}
+	return parseScutil(string(out)), nil
+}
