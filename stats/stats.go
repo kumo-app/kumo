@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -88,6 +89,13 @@ type file struct {
 	Saved  time.Time        `json:"saved"`
 }
 
+// Version is the format of the record this Kumo writes.
+const Version = 1
+
+// ErrNewer is Open's error for a record a newer Kumo wrote: Kumo leaves
+// it as it is, and counts this session in memory only.
+var ErrNewer = errors.New("the traffic statistics were saved by a newer version of Kumo")
+
 // Store records traffic. It is safe for use by several goroutines.
 type Store struct {
 	mu    sync.Mutex
@@ -97,7 +105,9 @@ type Store struct {
 	fresh bool // the next snapshot is the first from a core
 	// started says Kumo started that core, so all its traffic is new.
 	started bool
-	now     func() time.Time
+	// readOnly keeps a newer Kumo's record from being overwritten.
+	readOnly bool
+	now      func() time.Time
 }
 
 // Open reads the record at path, starting an empty one when there is none.
@@ -122,6 +132,13 @@ func Open(path string) (*Store, error) {
 		core.KeepCorrupt(path)
 		return s, err
 	}
+	if s.f.Version > Version {
+		s.reset()
+		s.readOnly = true
+		return s, ErrNewer
+	}
+	// Version 0 had no field, and the same layout: nothing to migrate.
+	s.f.Version = Version
 	if s.f.Days == nil {
 		s.f.Days = map[string]Bucket{}
 	}
@@ -132,7 +149,7 @@ func Open(path string) (*Store, error) {
 }
 
 func (s *Store) reset() {
-	s.f = file{Version: 1, Days: map[string]Bucket{}, Months: map[string]Bucket{}}
+	s.f = file{Version: Version, Days: map[string]Bucket{}, Months: map[string]Bucket{}}
 }
 
 // NewCore tells the store that the next snapshot comes from a core that
@@ -275,7 +292,7 @@ func fold(m map[string]Bytes, max int) map[string]Bytes {
 func (s *Store) Save() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if !s.dirty {
+	if !s.dirty || s.readOnly {
 		return nil
 	}
 	now := s.now()

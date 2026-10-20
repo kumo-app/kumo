@@ -59,6 +59,7 @@ func (k *Kumo) view(c *ui.Context) {
 	if !k.prefs.UI.AdvancedMode && (shown.path == "/core" || shown.path == "/config") {
 		shown = k.pages()[0]
 	}
+	k.shown = shown.path
 	ui.Row(c).Grow(1).AlignItems(ui.Stretch).Gradient(s.top, s.bottom, 180).Children(func() {
 		k.sidebar(c, s, shown.path)
 		area := ui.Column(c).Grow(1).MinWidth(0)

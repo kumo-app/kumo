@@ -194,7 +194,9 @@ func (m *Manager) Start(config string) error {
 		m.fail(err.Error())
 		return err
 	}
-	logf, err := os.OpenFile(m.LogPath(), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	// Through a pipe, so that the log is capped (LogLimit): a file handed
+	// to the core would grow for as long as it runs.
+	logf, err := openCapped(m.LogPath(), LogLimit)
 	if err != nil {
 		m.fail(err.Error())
 		return err

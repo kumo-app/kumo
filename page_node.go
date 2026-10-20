@@ -24,7 +24,7 @@ func (k *Kumo) cardMonitor(c *ui.Context, s skin, name string) {
 	if k.mon == nil {
 		return
 	}
-	sum, ok := k.mon.Summary(name)
+	uptime, tests, ok := k.mon.Uptime(name)
 	chk := k.mon.Checks(name)
 	busy := k.nodeTest.name == name
 	if !ok && chk.SpeedAt.IsZero() && chk.UDPAt.IsZero() && !busy {
@@ -32,9 +32,9 @@ func (k *Kumo) cardMonitor(c *ui.Context, s skin, name string) {
 	}
 	ui.Row(c).Gap(6).AlignItems(ui.Center).Height(16).Children(func() {
 		if ok {
-			col := uptimeColor(s, sum.Uptime)
-			ui.Text(c, uptimeText(sum.Uptime)).FontSize(10.5).FontWeight(600).FontFeatures("tnum").TextColor(col).SingleLine().
-				Tooltip(fmt.Sprintf(tr("Up %s of %d tests since Kumo started"), uptimeText(sum.Uptime), sum.Tests))
+			col := uptimeColor(s, uptime)
+			ui.Text(c, uptimeText(uptime)).FontSize(10.5).FontWeight(600).FontFeatures("tnum").TextColor(col).SingleLine().
+				Tooltip(fmt.Sprintf(tr("Up %s of %d tests since Kumo started"), uptimeText(uptime), tests))
 			if k.prefs.UI.AdvancedMode {
 				samples := k.mon.Samples(name)
 				ui.Box(c).Grow(1).Height(14).MinWidth(20).Draw(func(p *ui.Painter, r ui.Rect) {

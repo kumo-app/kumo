@@ -177,6 +177,19 @@ func (m *Monitor) Outages(name string) []Outage {
 	return out
 }
 
+// Uptime is the share of name's successful tests and their count, false
+// before its first test: what a node's card shows, without the copy and
+// sort of the samples that Summary does.
+func (m *Monitor) Uptime(name string) (uptime float64, tests int, ok bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	n := m.nodes[name]
+	if n == nil || n.tests == 0 {
+		return 0, 0, false
+	}
+	return float64(n.tests-n.fails) / float64(n.tests), n.tests, true
+}
+
 // Summary sums up name's record: uptime over every test since launch,
 // latency over the samples kept.
 func (m *Monitor) Summary(name string) (Summary, bool) {

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"image"
 	"image/png"
 	"os"
 	"testing"
@@ -49,5 +50,29 @@ func TestSpeedTextOffWhenHidden(t *testing.T) {
 	k.prefs.App.HideTraySpeed = true
 	if k.speedText() != "" {
 		t.Fatal("hidden speed still shown")
+	}
+}
+
+// The cached glyph must draw exactly what scaling it afresh draws.
+func TestScaledGlyphCached(t *testing.T) {
+	a, err := scaledGlyph(trayGlyph)
+	if err != nil {
+		t.Fatal(err)
+	}
+	g, _ := png.Decode(bytes.NewReader(trayGlyph))
+	want := image.NewNRGBA(a.Bounds())
+	scaleInto(want, want.Bounds(), g)
+	if !bytes.Equal(a.Pix, want.Pix) {
+		t.Fatal("cached glyph differs from a fresh scale")
+	}
+	if b, _ := scaledGlyph(trayGlyph); b != a {
+		t.Fatal("glyph scaled twice")
+	}
+}
+
+func BenchmarkSpeedIcon(b *testing.B) {
+	b.ReportAllocs()
+	for b.Loop() {
+		speedIcon(trayGlyph, "4.0 KB/s", "1.2 MB/s")
 	}
 }

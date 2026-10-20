@@ -43,6 +43,7 @@ type Kumo struct {
 	menuSig   string                       // what the menus show, as last built
 	speedSig  string                       // the speed the tray shows
 	logLevel  string
+	shown     string // the page the window shows, as the view last drew it
 	logPaused bool
 	logFeed   func()
 	logStop   context.CancelFunc
@@ -113,6 +114,8 @@ type Kumo struct {
 	connList  ui.ListState
 	ruleList  ui.ListState
 	logList   ui.ListState
+	nodeList  ui.ListState
+	nodeRows  []nodeRow
 	ctl       controllerForm
 	ctlReady  bool
 }
@@ -239,28 +242,37 @@ func (k *Kumo) watch(ctx context.Context, cli *clash.Client, gen int) {
 	}
 }
 
-// streams follows the controller's live feeds.
+// streams follows the controller's live feeds. The feeds change the state
+// every second, but a frame is drawn only when the page shown displays
+// what changed: Home its charts, Connections and Statistics the
+// connections, the sidebar the connections' count. The log is batched.
 func (k *Kumo) streams(ctx context.Context, cli *clash.Client, gen int) {
-	live := func(fn func()) {
-		k.post(func() {
-			if k.gen == gen {
-				fn()
-			}
-		})
+	live := func(fn func() bool) {
+		k.quiet(func() bool { return k.gen == gen && fn() })
 	}
 	follow(ctx, cli, "/traffic", nil, func(t clash.Traffic) {
 		// The menu bar speed follows the feed itself: with the window
 		// hidden no frame is drawn, so the view cannot keep it current.
-		live(func() { k.traffic = t; k.upHist.push(t.Up); k.dnHist.push(t.Down); k.syncSpeed() })
+		live(func() bool {
+			k.traffic = t
+			k.upHist.push(t.Up)
+			k.dnHist.push(t.Down)
+			k.syncSpeed()
+			return k.shown == "/home"
+		})
 	})
 	follow(ctx, cli, "/memory", nil, func(m clash.Memory) {
-		live(func() { k.memory = m.InUse; k.memHist.push(m.InUse) })
+		live(func() bool { k.memory = m.InUse; k.memHist.push(m.InUse); return k.shown == "/home" })
 	})
 	follow(ctx, cli, "/connections", url.Values{"interval": {"1000"}}, func(c clash.Connections) {
 		if k.stats != nil {
 			k.stats.Record(c)
 		}
-		live(func() { k.conns = c })
+		live(func() bool {
+			count := len(k.conns.Connections) != len(c.Connections)
+			k.conns = c
+			return showsConns(k.shown) || (count && !k.prefs.UI.SidebarHidden)
+		})
 	})
 	k.logFeed = func() {
 		if k.logStop != nil {
@@ -268,19 +280,93 @@ func (k *Kumo) streams(ctx context.Context, cli *clash.Client, gen int) {
 		}
 		lctx, stop := context.WithCancel(ctx)
 		k.logStop = stop
-		follow(lctx, cli, "/logs", url.Values{"level": {k.logLevelOr()}}, func(l clash.Log) {
-			live(func() {
+		batch := &logBatch{}
+		go batch.flush(lctx, logEvery, func(lines []clash.Log) {
+			live(func() bool {
 				if k.logPaused {
-					return
+					return false
 				}
-				k.logs = append(k.logs, l)
-				if len(k.logs) > 1000 {
-					k.logs = k.logs[len(k.logs)-1000:]
-				}
+				k.logs = appendLogs(k.logs, lines, maxLogs)
+				return k.shown == "/logs"
 			})
 		})
+		follow(lctx, cli, "/logs", url.Values{"level": {k.logLevelOr()}}, batch.add)
 	}
-	live(k.logFeed)
+	live(func() bool { k.logFeed(); return false })
+}
+
+// showsConns reports whether the page at path shows the connections.
+func showsConns(path string) bool {
+	return path == "/home" || path == "/connections" || path == "/statistics"
+}
+
+// quiet runs fn on the main thread like post, but redraws the window only
+// when fn reports that what it changed is on screen.
+func (k *Kumo) quiet(fn func() bool) {
+	if k.win == nil {
+		fn()
+		return
+	}
+	mygo.RunOnMain(func() {
+		if fn() {
+			k.win.Invalidate()
+		}
+	})
+}
+
+const (
+	maxLogs  = 1000                   // the lines the Logs page keeps
+	logEvery = 250 * time.Millisecond // the log reaches the page at most 4 times a second
+)
+
+// logBatch gathers log lines off the main thread; flush hands them over
+// in batches, so a busy core costs at most four frames a second rather
+// than one a line.
+type logBatch struct {
+	mu    sync.Mutex
+	lines []clash.Log
+}
+
+func (b *logBatch) add(l clash.Log) {
+	b.mu.Lock()
+	b.lines = append(b.lines, l)
+	if len(b.lines) > 2*maxLogs { // a page cannot show more; keep memory flat
+		b.lines = append(b.lines[:0], b.lines[len(b.lines)-maxLogs:]...)
+	}
+	b.mu.Unlock()
+}
+
+func (b *logBatch) take() []clash.Log {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	out := b.lines
+	b.lines = nil
+	return out
+}
+
+// flush hands the gathered lines to fn every interval until ctx ends.
+func (b *logBatch) flush(ctx context.Context, every time.Duration, fn func([]clash.Log)) {
+	t := time.NewTicker(every)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			if lines := b.take(); len(lines) > 0 {
+				fn(lines)
+			}
+		}
+	}
+}
+
+// appendLogs adds lines to logs, keeping the last limit.
+func appendLogs(logs, lines []clash.Log, limit int) []clash.Log {
+	logs = append(logs, lines...)
+	if len(logs) > limit {
+		logs = append(logs[:0:0], logs[len(logs)-limit:]...)
+	}
+	return logs
 }
 
 func (k *Kumo) logLevelOr() string {

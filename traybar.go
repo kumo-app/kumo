@@ -95,6 +95,10 @@ const (
 )
 
 var (
+	glyphMu       sync.Mutex
+	glyphKey      []byte // the glyph scaledGlyph last scaled
+	glyphImg      *image.NRGBA
+	glyphErr      error
 	speedFace     font.Face
 	speedFaceErr  error
 	speedFaceOnce sync.Once
@@ -120,18 +124,19 @@ func speedIcon(glyph []byte, up, down string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	g, err := png.Decode(bytes.NewReader(glyph))
+	g, err := scaledGlyph(glyph)
 	if err != nil {
 		return nil, err
 	}
-	gb := g.Bounds()
-	gw := gb.Dx() * speedH / gb.Dy()
+	gw := g.Bounds().Dx()
 	col := font.MeasureString(face, "999 KB/s").Ceil()
 	for _, s := range []string{up, down} {
 		col = max(col, font.MeasureString(face, s).Ceil())
 	}
 	img := image.NewNRGBA(image.Rect(0, 0, gw+speedGap+col, speedH))
-	scaleInto(img, image.Rect(0, 0, gw, speedH), g)
+	for y := 0; y < speedH; y++ {
+		copy(img.Pix[y*img.Stride:y*img.Stride+gw*4], g.Pix[y*g.Stride:y*g.Stride+gw*4])
+	}
 	d := &font.Drawer{Dst: img, Src: image.NewUniform(color.Black), Face: face}
 	m := face.Metrics()
 	lineH := (m.Ascent + m.Descent).Ceil()
@@ -142,8 +147,46 @@ func speedIcon(glyph []byte, up, down string) ([]byte, error) {
 		d.DrawString(s)
 	}
 	var buf bytes.Buffer
-	err = png.Encode(&buf, img)
+	err = speedPNG.Encode(&buf, img)
 	return buf.Bytes(), err
+}
+
+// speedPNG reuses its compressor between images: a fresh one is a
+// megabyte of garbage each second.
+var speedPNG = png.Encoder{BufferPool: &pngPool{}}
+
+type pngPool struct{ p sync.Pool }
+
+func (p *pngPool) Get() *png.EncoderBuffer {
+	b, _ := p.p.Get().(*png.EncoderBuffer)
+	return b
+}
+func (p *pngPool) Put(b *png.EncoderBuffer) { p.p.Put(b) }
+
+// scaledGlyph is the glyph decoded and scaled to the menu bar's height,
+// done once: decoding and supersampling it took about 2 ms and 1 MB of
+// garbage, every second, for each speed image.
+func scaledGlyph(glyph []byte) (*image.NRGBA, error) {
+	glyphMu.Lock()
+	defer glyphMu.Unlock()
+	if glyphImg != nil && bytes.Equal(glyphKey, glyph) {
+		return glyphImg, nil
+	}
+	if glyphErr != nil && bytes.Equal(glyphKey, glyph) {
+		return nil, glyphErr
+	}
+	glyphKey = glyph
+	g, err := png.Decode(bytes.NewReader(glyph))
+	if err != nil {
+		glyphImg, glyphErr = nil, err
+		return nil, err
+	}
+	gb := g.Bounds()
+	gw := gb.Dx() * speedH / gb.Dy()
+	img := image.NewNRGBA(image.Rect(0, 0, gw, speedH))
+	scaleInto(img, img.Bounds(), g)
+	glyphImg, glyphErr = img, nil
+	return img, nil
 }
 
 // scaleInto copies src into r of dst, nearest neighbour with 2x2
