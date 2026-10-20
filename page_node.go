@@ -2,9 +2,11 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/egoist/mygo/ui/chart"
 
 	"kumo/monitor"
 	"kumo/nodetest"
@@ -99,23 +101,25 @@ func latencyLine(p *ui.Painter, r ui.Rect, samples []monitor.Sample, n int, stro
 		}
 		return r.X + r.W*float32(i+slots-len(samples))/float32(slots-1)
 	}
-	var line ui.Path
-	drawing := false
+	// The whole history can hold far more samples than the plot has pixel
+	// columns: chart.MinMax keeps each column's lowest and highest point,
+	// so spikes still show, and a failure (NaN) breaks the line.
+	xs, ys := make([]float32, len(samples)), make([]float32, len(samples))
 	for i, sm := range samples {
+		xs[i] = (x(i) - r.X) / max(r.W, 1)
+		ys[i] = float32(math.NaN())
 		if !sm.OK() {
 			p.Fill(ui.Rect{X: x(i) - 1, Y: r.Y + r.H - 4, W: 2, H: 4}, fail, 1)
-			drawing = false
 			continue
 		}
-		y := r.Y + r.H - 1 - (r.H-2)*float32(sm.MS)/float32(peak)
-		if !drawing {
-			line.MoveTo(x(i), y)
-			drawing = true
-		} else {
-			line.LineTo(x(i), y)
-		}
+		ys[i] = float32(sm.MS) / float32(peak)
 	}
-	p.StrokePath(&line, width, stroke)
+	xs, ys = chart.MinMax(nil, nil, xs, ys, int(math.Ceil(float64(r.W*p.Scale()))))
+	line := make([][2]float32, len(xs))
+	for i := range xs {
+		line[i] = [2]float32{r.X + r.W*xs[i], r.Y + r.H - 1 - (r.H-2)*ys[i]}
+	}
+	p.StrokePolyline(line, width, stroke)
 }
 
 // nodeSheet is the node's whole record and its tests.
