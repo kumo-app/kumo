@@ -149,7 +149,7 @@ func (k *Kumo) statusLine(c *ui.Context, s skin) {
 	color, text := ui.Hex("#ef4444"), tr("Core not running")
 	switch {
 	case k.online && k.proxyOn && k.proxyEff.stale():
-		color, text = slow, tr("System proxy not in effect")
+		color, text = slow, tr("Proxy not in effect")
 	case k.online && k.proxyOn:
 		color, text = s.good, tr("Connected")
 	case k.online:

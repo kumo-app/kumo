@@ -46,9 +46,18 @@ func TestRouteFromLog(t *testing.T) {
 	if _, ok := routeFromLog("[TCP] 127.0.0.1:54321 --> www.google.com:443 match DomainSuffix(google.com) using Proxy[HK-01]", 1); ok {
 		t.Fatal("another port matched")
 	}
-	r, ok = routeFromLog("[TCP] dial Proxy (match DomainSuffix/google.com) 127.0.0.1:5000 --> www.google.com:443 error: timeout", 5000)
-	_ = r
-	_ = ok // mihomo's error line has another form; the listed connection covers it
+	r, ok = routeFromLog("[TCP] dial Proxy (match DomainSuffix/google.com) 127.0.0.1:5000(curl, uid=501) --> www.google.com:443 error: dial timeout", 5000)
+	if !ok || r.matched() != "DOMAIN-SUFFIX,google.com" || r.node() != "Proxy" {
+		t.Fatalf("dial error: %+v %v", r, ok)
+	}
+	r, ok = routeFromLog("[TCP] 127.0.0.1:51462(kumo, uid=1000) --> h9.test:80 match Match using PROXY[N247]", 51462)
+	if !ok || r.matched() != "MATCH" || strings.Join(r.chain, ">") != "PROXY>N247" {
+		t.Fatalf("with process: %+v %v", r, ok)
+	}
+	r, ok = routeFromLog("[TCP] 127.0.0.1:7000 --> a.b:443 match GeoSite(google) using Proxy[🇭🇰 HK 01]", 7000)
+	if !ok || r.node() != "🇭🇰 HK 01" {
+		t.Fatalf("spaces: %+v", r)
+	}
 	r, ok = routeFromLog("[TCP] 127.0.0.1:6000 --> example.org:80 doesn't match any rule using DIRECT", 6000)
 	if !ok || r.matched() != "MATCH" || r.node() != "DIRECT" {
 		t.Fatalf("no rule: %+v %v", r, ok)

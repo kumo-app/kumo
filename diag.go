@@ -280,6 +280,13 @@ func runCheck(ctx context.Context, st diagStep, e diagEnv, done map[string]diagS
 			return skip(tr("Needs the core."))
 		}
 		ips, err := e.cli.DNSQuery(ctx, "www.gstatic.com", "A")
+		if err != nil && strings.Contains(err.Error(), "DNS section is disabled") {
+			// The profile has no dns section: the core asks the system.
+			if addrs, lerr := net.DefaultResolver.LookupHost(ctx, "www.gstatic.com"); lerr == nil && len(addrs) > 0 {
+				return ok(tr("The profile has no DNS section, so the core uses the system's DNS: ") + "www.gstatic.com → " + strings.Join(addrs[:min(len(addrs), 2)], ", "))
+			}
+			return fail(tr("The profile has no DNS section, and the system's DNS does not answer."))
+		}
 		if err != nil || len(ips) == 0 {
 			if err == nil {
 				err = errors.New(tr("no answer"))

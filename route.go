@@ -138,23 +138,33 @@ func testURL(in string) (string, error) {
 }
 
 // logRoute reads mihomo's info line of a connection from the source port:
-// "[TCP] 127.0.0.1:54321 --> example.com:443 match DomainSuffix(example.com) using Proxy[HK-01]".
-var logRoute = regexp.MustCompile(`(?:^|\s)(?:127\.0\.0\.1|\[::1\]|localhost):(\d+) --> (\S+) (?:match (\S+?)\((.*?)\) using|doesn't match any rule using) (.+?)(?:$| error)`)
+// "[TCP] 127.0.0.1:54321(curl, uid=501) --> example.com:443 match DomainSuffix(example.com) using Proxy[HK-01]",
+// "... match Match using PROXY[N1]", "... doesn't match any rule using DIRECT";
+// and the line of one that failed to dial:
+// "[TCP] dial Proxy (match DomainSuffix/example.com) 127.0.0.1:54321(curl) --> example.com:443 error: ...".
+var (
+	logRoute = regexp.MustCompile(`(?:127\.0\.0\.1|\[::1\]|localhost):(\d+)(?:\([^)]*\))? --> \S+ (?:match (\S+?)(?:\((.*?)\))? using|doesn't match any rule using) (.+)$`)
+	logDial  = regexp.MustCompile(`dial (.+?) \(match (\w+)/(.*?)\) (?:127\.0\.0\.1|\[::1\]|localhost):(\d+)(?:\([^)]*\))? --> \S+ error: (.*)$`)
+)
 
 func routeFromLog(line string, port int) (route, bool) {
-	m := logRoute.FindStringSubmatch(line)
-	if m == nil || m[1] != strconv.Itoa(port) {
+	var r route
+	var using string
+	if m := logRoute.FindStringSubmatch(line); m != nil && m[1] == strconv.Itoa(port) {
+		r.rule, r.payload, using = m[2], m[3], m[4]
+	} else if m := logDial.FindStringSubmatch(line); m != nil && m[4] == strconv.Itoa(port) {
+		r.rule, r.payload, using = m[2], m[3], m[1]
+	} else {
 		return route{}, false
 	}
-	r := route{rule: m[3], payload: m[4]}
 	if r.rule == "" {
 		r.rule = "Match"
 	}
 	// "Proxy[HK-01]", "Proxy[Auto[HK-01]]", or "DIRECT".
-	using := strings.TrimSpace(m[5])
+	using = strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(using), `"`))
 	for using != "" {
 		name, rest, ok := strings.Cut(using, "[")
-		r.chain = append(r.chain, name)
+		r.chain = append(r.chain, strings.TrimSpace(name))
 		if !ok {
 			break
 		}
@@ -176,6 +186,10 @@ func (k *Kumo) runRouteTest() {
 	cli, port := k.cli, k.listenPort()
 	go func() {
 		res := probeRoute(cli, port, target)
+		if !res.found {
+			// Its log line comes over the log feed, in batches.
+			time.Sleep(2 * logEvery)
+		}
 		k.post(func() {
 			if res.target != k.routeTest.target {
 				return
